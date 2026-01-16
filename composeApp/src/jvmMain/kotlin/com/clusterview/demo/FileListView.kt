@@ -31,7 +31,11 @@ fun FileListView(
     // Brand Colors
     val OxfordBlue = Color(0, 33, 71)
     val Tan = Color(210, 180, 140)
-    var query by remember { mutableStateOf("") }
+    var query by remember { mutableStateOf("")
+    }
+
+    var showExportDialog by remember { mutableStateOf(false) }
+    var exportFileName by remember { mutableStateOf("${clusterName.replace(" ", "_")}_Export") }
 
     Column(Modifier.fillMaxSize().background(Color(0xFFF1F3F5))) {
 
@@ -69,7 +73,9 @@ fun FileListView(
 
                 // EXPORT BUTTON
                 Button(
-                    onClick = { exportToCSV(files, clusterName) },
+                    onClick = {
+                        showExportDialog = true  // <--- CHANGE THIS LINE HERE
+                    },
                     colors = ButtonDefaults.buttonColors(backgroundColor = Tan),
                     shape = RoundedCornerShape(8.dp),
                     elevation = ButtonDefaults.elevation(defaultElevation = 4.dp),
@@ -165,7 +171,69 @@ fun FileListView(
             }
         }
     }
+
+    if (showExportDialog) {
+        androidx.compose.ui.window.Dialog(
+            onCloseRequest = { showExportDialog = false },
+            title = "Export Data",
+            state = androidx.compose.ui.window.rememberDialogState(width = 450.dp, height = 300.dp)
+        ) {
+            Column(
+                Modifier.fillMaxSize().background(OxfordBlue).padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text("Export Cluster", color = Tan, style = MaterialTheme.typography.h6)
+                Spacer(Modifier.height(8.dp))
+                Text("Choose a name for your CSV report", color = Color.White.copy(alpha = 0.6f))
+
+                Spacer(Modifier.height(24.dp))
+
+                // Custom Styled Input
+                TextField(
+                    value = exportFileName,
+                    onValueChange = { exportFileName = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = TextFieldDefaults.textFieldColors(
+                        backgroundColor = Color.White.copy(alpha = 0.1f),
+                        textColor = Color.White,
+                        cursorColor = Tan,
+                        focusedIndicatorColor = Tan
+                    ),
+                    trailingIcon = { Text(".csv", color = Tan, modifier = Modifier.padding(end = 8.dp)) }
+                )
+
+                Spacer(Modifier.weight(1f))
+
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // Cancel Button
+                    OutlinedButton(
+                        onClick = { showExportDialog = false },
+                        modifier = Modifier.weight(1f),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Tan.copy(alpha = 0.5f)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Tan)
+                    ) {
+                        Text("CANCEL")
+                    }
+
+                    // Save Button
+                    Button(
+                        onClick = {
+                            // We call the logic directly here
+                            saveFilesToCSV(files, "$exportFileName.csv")
+                            showExportDialog = false
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(backgroundColor = Tan)
+                    ) {
+                        Text("SAVE FILE", color = OxfordBlue, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    }
+
 }
+
 
 fun getIconColorForExtension(ext: String): Color {
     return when (ext.lowercase()) {

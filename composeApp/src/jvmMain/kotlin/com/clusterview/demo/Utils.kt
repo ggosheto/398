@@ -76,3 +76,42 @@ fun exportToCSV(files: List<FileEntry>, clusterName: String) {
         }
     }
 }
+
+/*fun saveFilesToCSV(files: List<FileEntry>, fileName: String) {
+    try {
+        // This finds the path to the current user's Desktop
+        val userHome = System.getProperty("user.home")
+        val desktopPath = File(userHome, "Desktop")
+        val finalFile = File(desktopPath, fileName)
+
+        PrintWriter(finalFile).use { writer ->
+            // Write the CSV Header
+            writer.println("ID,Name,Extension,Size_Bytes,Path")
+
+            // Write the data rows
+            files.forEach { file ->
+                val cleanName = file.name.replace(",", "")
+                val cleanPath = file.path.replace(",", "")
+                writer.println("${file.id},$cleanName,${file.extension},${file.size},$cleanPath")
+            }
+        }
+        println("File saved successfully to: ${finalFile.absolutePath}")
+    } catch (e: Exception) {
+        println("Error saving CSV: ${e.message}")
+        e.printStackTrace()
+    }
+}*/
+
+// IN UTILS.KT - DELETE EVERYTHING ELSE AND USE ONLY THIS:
+fun saveFilesToCSV(files: List<FileEntry>, fileName: String) {
+    val userHome = System.getProperty("user.home")
+    val desktopPath = java.io.File(userHome, "Desktop")
+    val finalFile = java.io.File(desktopPath, fileName)
+
+    java.io.PrintWriter(finalFile).use { writer ->
+        writer.println("ID,Name,Extension,Size_Bytes,Path")
+        files.forEach { file ->
+            writer.println("${file.id},${file.name},${file.extension},${file.size},${file.path}")
+        }
+    }
+}
