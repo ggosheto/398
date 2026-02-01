@@ -1,14 +1,36 @@
 package com.clusterview.demo
 
+import java.io.File
 import java.sql.Connection
 import java.sql.DriverManager
-import java.sql.ResultSet
 
 object DatabaseManager {
     private const val DB_URL = "jdbc:sqlite:clusterview.db"
+    private val storageFile = File("users_db.txt")
+    private val registeredUsers = mutableListOf<User>()
 
     // Hold one active connection instead of opening/closing constantly
     private var connection: Connection? = null
+    init {
+        loadUsersFromDisk()
+    }
+
+    private fun loadUsersFromDisk() {
+        if (storageFile.exists()) {
+            storageFile.readLines().forEach { line ->
+                val parts = line.split("|")
+                if (parts.size == 4) {
+                    registeredUsers.add(User(parts[0].toInt(), parts[1], parts[2], parts[3]))
+                }
+            }
+        }
+    }
+
+    private fun saveUserToDisk(user: User) {
+        // Append the new user to the file so they survive a restart
+        val data = "${user.id}|${user.email}|${user.username}|${user.passwordHash}\n"
+        storageFile.appendText(data)
+    }
 
     fun getConnection(): Connection {
         if (connection == null || connection!!.isClosed) {
@@ -110,35 +132,6 @@ object DatabaseManager {
             }
         }
     }
-
-    // 1. This is the data model for the UI
-
-
-    // 2. This function talks to the DB to get the clusters + file counts
-    // Example: Correct Resource Cleanup for getClusterSummaries
-    /*fun getClusterSummaries(): List<ClusterSummary> {
-        val summaries = mutableListOf<ClusterSummary>()
-        val sql = "SELECT c.id, c.name, c.color, COUNT(f.id) as file_count FROM clusters c LEFT JOIN files f ON c.id = f.cluster_id GROUP BY c.id"
-
-        // 1. Connection is opened and automatically closed
-        getConnection().use { conn ->
-            // 2. Statement is opened and automatically closed
-            conn.createStatement().use { stmt ->
-                // 3. ResultSet is opened and automatically closed
-                stmt.executeQuery(sql).use { rs ->
-                    while (rs.next()) {
-                        summaries.add(ClusterSummary(
-                            rs.getInt("id"),
-                            rs.getString("name"),
-                            rs.getString("color") ?: "#D2B48C",
-                            rs.getInt("file_count")
-                        ))
-                    }
-                }
-            }
-        }
-        return summaries
-    }*/
 
     fun clearAllData() {
         getConnection().use { conn ->
@@ -251,8 +244,6 @@ object DatabaseManager {
     }
 
     fun getUserById(userId: Int): User? {
-        // This is a placeholder. For the Olympiad, you will eventually
-        // query your SQL 'users' table here.
         return try {
             // Mocking a successful database return for now so your code runs
             User(id = userId, email = "user@example.com", username = "OlympiadCandidate", passwordHash = "mock_hash")
@@ -265,7 +256,6 @@ object DatabaseManager {
         return User(1, email, "OlympiadUser", "mock_hash")
     }
 
-    // Ensure this matches the arguments App.kt is trying to pass
     fun getClusterSummaries(): List<ClusterSummary> {
         // Add your existing DB logic here
         return emptyList()
@@ -282,30 +272,26 @@ object DatabaseManager {
             }
         }
     }*/
+    //private val registeredUsers = mutableListOf<User>()
 
-    // A simple list to act as our "Live" database for the session
-    // A simple list to act as our temporary database
-    private val registeredUsers = mutableListOf<User>()
+    fun registerUser(email: String, pass: String): String? {
+        // 1. Check if the email is already in our list
+        if (registeredUsers.any { it.email.equals(email, ignoreCase = true) }) {
+            return "CRITICAL ERROR: OPERATOR EMAIL ALREADY REGISTERED" // Return error message
+        }
 
-    fun registerUser(email: String, pass: String): Boolean {
-        // 1. Check if user already exists
-        if (registeredUsers.any { it.email == email }) return false
-
-        // 2. Create the new User object
+        // 2. If it doesn't exist, create and add it
         val newUser = User(
             id = registeredUsers.size + 1,
             email = email,
-            username = email.substringBefore("@"), // Simple username generation
-            passwordHash = pass // In a real app, you'd hash this
+            username = email.substringBefore("@"),
+            passwordHash = pass
         )
-
-        // 3. Save to our list
         registeredUsers.add(newUser)
-        println("System: Registered new operator $email")
-        return true
+        saveUserToDisk(newUser)
+        return null
     }
 
-    // 4. Update your login to check this list
     fun verifyLogin(email: String, pass: String): User? {
         return registeredUsers.find { it.email == email && it.passwordHash == pass }
     }

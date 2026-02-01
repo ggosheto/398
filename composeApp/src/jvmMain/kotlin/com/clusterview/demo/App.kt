@@ -31,8 +31,16 @@ data class FileEntry(val name: String, val path: String, val size: Long, val ext
 @Composable
 fun App() {
     // --- 2. STATE MANAGEMENT ---
-    var currentScreen by remember { mutableStateOf("login") }
-    var currentUser by remember { mutableStateOf<User?>(null) }
+    var currentScreen by remember {
+        mutableStateOf(if (AuthManager.isUserRemembered()) "home" else "login")
+    }
+    var currentUser by remember {
+        mutableStateOf<User?>(
+            if (AuthManager.isUserRemembered()) {
+                DatabaseManager.getUserById(AuthManager.getSavedUserId())
+            } else null
+        )
+    }
     var clusters by remember { mutableStateOf(emptyList<ClusterSummary>()) }
     var selectedClusterName by remember { mutableStateOf("") }
     var loadedFiles by remember { mutableStateOf(emptyList<FileEntry>()) }

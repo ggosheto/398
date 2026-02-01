@@ -14,7 +14,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -41,6 +42,7 @@ fun LoginView(
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var stayLoggedIn by remember { mutableStateOf(false) }
 
     val OxfordBlue = Color(0, 33, 71)
     val Tan = Color(210, 180, 140)
@@ -127,6 +129,30 @@ fun LoginView(
 
                 Spacer(Modifier.height(32.dp))
 
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = stayLoggedIn,
+                        onCheckedChange = { stayLoggedIn = it },
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = Tan,
+                            uncheckedColor = Tan.copy(alpha = 0.5f),
+                            checkmarkColor = OxfordBlue
+                        )
+                    )
+                    Text(
+                        text = "STAY LOGGED IN",
+                        color = Tan.copy(alpha = 0.8f),
+                        style = MaterialTheme.typography.caption,
+                        modifier = Modifier.padding(start = 8.dp),
+                        letterSpacing = 1.sp
+                    )
+                }
+
                 // Action Button
                 Button(
                     onClick = {
@@ -139,11 +165,22 @@ fun LoginView(
                             isLoading = false
                         }*/
 
-                        val authenticatedUser = DatabaseManager.verifyLogin(email, password)
+                        /*val authenticatedUser = DatabaseManager.verifyLogin(email, password)
                         if (authenticatedUser != null) {
                             onAuthSuccess(authenticatedUser)
                         } else {
                             errorMessage = "ACCESS DENIED: UNKNOWN OPERATOR"
+                            isLoading = false
+                        }*/
+
+                        isLoading = true
+                        // We pass 'stayLoggedIn' as the 'remember' parameter
+                        val authenticatedUser = AuthManager.login(email, password, stayLoggedIn)
+
+                        if (authenticatedUser != null) {
+                            onAuthSuccess(authenticatedUser)
+                        } else {
+                            errorMessage = "ACCESS DENIED: INVALID CREDENTIALS"
                             isLoading = false
                         }
                     },
@@ -177,6 +214,9 @@ fun FuturisticTextField(
     isPassword: Boolean = false
 ) {
     val Tan = Color(210, 180, 140)
+    // State to track if password should be shown or hidden
+    var passwordVisible by remember { mutableStateOf(false) }
+
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
@@ -190,8 +230,22 @@ fun FuturisticTextField(
             textColor = Color.White,
             cursorColor = Tan
         ),
-        visualTransformation = if (isPassword)
+        // Logic to switch between hidden stars and plain text
+        visualTransformation = if (isPassword && !passwordVisible)
             androidx.compose.ui.text.input.PasswordVisualTransformation()
-        else androidx.compose.ui.text.input.VisualTransformation.None
+        else androidx.compose.ui.text.input.VisualTransformation.None,
+
+        // The Eye Icon Button
+        trailingIcon = {
+            if (isPassword) {
+                val image = if (passwordVisible)
+                    Icons.Filled.Visibility
+                else Icons.Filled.VisibilityOff
+
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    Icon(imageVector = image, contentDescription = null, tint = Tan.copy(alpha = 0.6f))
+                }
+            }
+        }
     )
 }
