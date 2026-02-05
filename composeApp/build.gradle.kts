@@ -33,6 +33,7 @@ kotlin {
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutinesSwing)
+            implementation("io.github.vinceglb:filekit-compose:0.8.2")
         }
     }
 }

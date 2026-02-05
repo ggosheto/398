@@ -11,11 +11,12 @@ data class FileEntry(
     var isStarred: Boolean = false
 )
 
-data class Cluster(
-    val id: Int = 0,
+/*data class Cluster(
+    val id: Int,
     val name: String,
-    val color: String
-)
+    val status: String,
+    val nodeCount: Int
+)*/
 
 data class User(
     val id: Int,

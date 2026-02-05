@@ -284,7 +284,7 @@ fun FileListView(
             Row(Modifier.padding(top = 20.dp), verticalAlignment = Alignment.CenterVertically) {
                 StatItem("OBJECTS", displayFiles.size.toString(), isDarkMode)
                 Box(Modifier.padding(horizontal = 20.dp).width(1.dp).height(24.dp).background(subTextColor.copy(0.2f)))
-                StatItem("VOLUME", formatFileSize(displayFiles.sumOf { it.size }), isDarkMode)
+                StatItem("VOLUME", formatBytes(displayFiles.sumOf { it.size }), isDarkMode)
             }
             DistributionBar(displayFiles)
         }
@@ -449,11 +449,11 @@ fun InfoRow(label: String, value: String, isDarkMode: Boolean) {
     }
 }
 
-fun formatFileSize(size: Long): String {
+/*fun formatFileSize(size: Long): String {
     val kb = size / 1024.0
     val mb = kb / 1024.0
     return if (mb >= 1.0) "%.2f MB".format(mb) else if (kb >= 1.0) "%.2f KB".format(kb) else "$size B"
-}
+}*/
 
 @Composable
 fun SortButton(label: String, isSelected: Boolean, onClick: () -> Unit) {

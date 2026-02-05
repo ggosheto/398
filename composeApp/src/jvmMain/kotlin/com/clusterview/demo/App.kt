@@ -80,18 +80,8 @@ fun App() {
                 )
 
                 "home" -> HomeView(
-                    user = currentUser,          // Passes the User object you got from login
-                    clusters = clusters,        // Passes the list of clusters to display
-                    onImportClick = {
-
-                        println("Importing new folder...")
-                    },
-                    onClusterClick = { cluster ->
-                        selectedClusterName = cluster.name
-                        currentScreen = "list"
-                    },
-                    onLogout = {
-                        AuthManager.logout()
+                    user = currentUser,
+                    onLogoutSuccess = {
                         currentUser = null
                         currentScreen = "login"
                     }
