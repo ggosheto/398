@@ -24,7 +24,7 @@ import java.time.format.DateTimeFormatter
 import javax.swing.JFileChooser
 import javax.swing.UIManager
 
-// --- 1. DATA MODELS ---
+// --- 1. DATA MODELS & ENUMS ---
 data class Cluster(
     val id: Int,
     val name: String,
@@ -38,6 +38,8 @@ data class FileMetadata(
     val extension: String,
     val sizeString: String
 )
+
+enum class SortOption { NAME, DATE, OBJECT_COUNT }
 
 // --- 2. THEME SYSTEM ---
 object VelvetTheme {
@@ -60,6 +62,22 @@ fun HomeView(user: User?, onLogoutSuccess: () -> Unit) {
     val clusters = remember { mutableStateListOf<Cluster>().apply { addAll(loadClusters()) } }
     var selectedCluster by remember { mutableStateOf<Cluster?>(null) }
     var clusterToDelete by remember { mutableStateOf<Cluster?>(null) }
+
+    // Search and Sort State
+    var searchTerm by remember { mutableStateOf("") }
+    var currentSort by remember { mutableStateOf(SortOption.NAME) }
+    var sortMenuExpanded by remember { mutableStateOf(false) }
+
+    // Logic: Filter and then Sort the list
+    val filteredClusters = clusters
+        .filter { it.name.contains(searchTerm, ignoreCase = true) }
+        .sortedWith(compareBy {
+            when (currentSort) {
+                SortOption.NAME -> it.name.lowercase()
+                SortOption.DATE -> it.lastModified
+                SortOption.OBJECT_COUNT -> -it.fileCount // Descending
+            }
+        })
 
     Box(modifier = Modifier.fillMaxSize().background(VelvetTheme.CoreGradient)) {
         if (selectedCluster != null) {
@@ -120,12 +138,63 @@ fun HomeView(user: User?, onLogoutSuccess: () -> Unit) {
                 }
             ) { padding ->
                 Column(modifier = Modifier.padding(padding).padding(horizontal = 24.dp)) {
-                    Text("SYSTEM CLUSTERS", style = MaterialTheme.typography.overline, color = VelvetTheme.SlateBlue, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.height(24.dp))
 
-                    if (clusters.isEmpty()) {
+                    // --- SEARCH & SORT ROW ---
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextField(
+                            value = searchTerm,
+                            onValueChange = { searchTerm = it },
+                            modifier = Modifier.weight(1f).border(1.dp, VelvetTheme.SlateBlue, RoundedCornerShape(12.dp)),
+                            placeholder = { Text("Search clusters...", color = VelvetTheme.SlateBlue) },
+                            colors = TextFieldDefaults.textFieldColors(
+                                backgroundColor = VelvetTheme.DeepOcean.copy(alpha = 0.5f),
+                                textColor = Color.White,
+                                cursorColor = VelvetTheme.SunsetCoral,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            leadingIcon = { Icon(Icons.Default.Search, null, tint = VelvetTheme.SunsetCoral) },
+                            singleLine = true
+                        )
+
+                        Spacer(Modifier.width(12.dp))
+
+                        Box {
+                            IconButton(
+                                onClick = { sortMenuExpanded = true },
+                                modifier = Modifier
+                                    .background(VelvetTheme.DeepOcean, RoundedCornerShape(12.dp))
+                                    .border(1.dp, VelvetTheme.SlateBlue, RoundedCornerShape(12.dp))
+                                    .size(56.dp)
+                            ) {
+                                Icon(Icons.Default.Sort, "Sort", tint = VelvetTheme.SunsetCoral)
+                            }
+
+                            DropdownMenu(
+                                expanded = sortMenuExpanded,
+                                onDismissRequest = { sortMenuExpanded = false },
+                                modifier = Modifier.background(VelvetTheme.DeepOcean).border(1.dp, VelvetTheme.SlateBlue)
+                            ) {
+                                DropdownMenuItem(onClick = { currentSort = SortOption.NAME; sortMenuExpanded = false }) {
+                                    Text("Sort by Name", color = Color.White)
+                                }
+                                DropdownMenuItem(onClick = { currentSort = SortOption.DATE; sortMenuExpanded = false }) {
+                                    Text("Sort by Date", color = Color.White)
+                                }
+                                DropdownMenuItem(onClick = { currentSort = SortOption.OBJECT_COUNT; sortMenuExpanded = false }) {
+                                    Text("Sort by Size", color = Color.White)
+                                }
+                            }
+                        }
+                    }
+
+                    if (filteredClusters.isEmpty()) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("NO DATA NODES DETECTED", color = VelvetTheme.SlateBlue)
+                            Text("NO MATCHING DATA NODES", color = VelvetTheme.SlateBlue)
                         }
                     } else {
                         LazyVerticalGrid(
@@ -133,7 +202,7 @@ fun HomeView(user: User?, onLogoutSuccess: () -> Unit) {
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            items(clusters) { cluster ->
+                            items(filteredClusters) { cluster ->
                                 ModernClusterCard(
                                     cluster = cluster,
                                     onDelete = { clusterToDelete = cluster },
@@ -147,7 +216,7 @@ fun HomeView(user: User?, onLogoutSuccess: () -> Unit) {
         }
     }
 
-    // --- DELETE CONFIRMATION DIALOG ---
+    // --- DELETE CONFIRMATION ---
     if (clusterToDelete != null) {
         AlertDialog(
             onDismissRequest = { clusterToDelete = null },
@@ -156,7 +225,7 @@ fun HomeView(user: User?, onLogoutSuccess: () -> Unit) {
             title = { Text("UNLINK CLUSTER?", color = Color.White, fontWeight = FontWeight.Bold) },
             text = {
                 Text(
-                    "Are you sure you want to remove '${clusterToDelete?.name}' from the dashboard? (Physical files will remain safe).",
+                    "Are you sure you want to remove '${clusterToDelete?.name}'? (Files remain on disk).",
                     color = VelvetTheme.SoftSand
                 )
             },
@@ -190,82 +259,38 @@ fun ModernClusterCard(cluster: Cluster, onDelete: () -> Unit, onClick: () -> Uni
             elevation = 8.dp,
             modifier = Modifier.fillMaxSize().clickable { onClick() }
         ) {
-            Column(
-                modifier = Modifier.padding(20.dp),
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                // HEADER ROW: Contains the Storage Icon (Left) and Deletion Box (Right)
+            Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.SpaceBetween) {
+                // Symmetrical Header
                 Row(
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.Top
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    // LEFT SIDE: Storage Icon
-                    Surface(
-                        color = VelvetTheme.DeepMaroon,
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Storage,
-                            null,
-                            tint = VelvetTheme.SunsetCoral,
-                            modifier = Modifier.padding(8.dp).size(24.dp)
-                        )
+                    Surface(color = VelvetTheme.DeepMaroon, shape = RoundedCornerShape(8.dp)) {
+                        Icon(Icons.Default.Storage, null, tint = VelvetTheme.SunsetCoral, modifier = Modifier.padding(8.dp).size(24.dp))
                     }
 
-                    // RIGHT SIDE: The "X" Button (Perfectly Mirrored)
+                    // The Mirror Box (X Button)
                     Surface(
                         color = VelvetTheme.DeepMaroon,
                         shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier
-                            .size(40.dp) // Total size: 24dp icon + 8dp padding on both sides
-                            .clickable { onDelete() }
+                        modifier = Modifier.size(40.dp).clickable { onDelete() }
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                Icons.Default.Close,
-                                null,
-                                tint = VelvetTheme.SunsetCoral,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            Icon(Icons.Default.Close, null, tint = VelvetTheme.SunsetCoral, modifier = Modifier.size(20.dp))
                         }
                     }
                 }
 
-                // BOTTOM CONTENT: Name and Objects Count
                 Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Bottom
-                    ) {
-                        Text(
-                            cluster.name,
-                            color = Color.White,
-                            style = MaterialTheme.typography.h6,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Text(
-                            "${cluster.fileCount} Objects",
-                            color = VelvetTheme.SunsetCoral,
-                            style = MaterialTheme.typography.caption
-                        )
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
+                        Text(cluster.name, color = Color.White, style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        Text("${cluster.fileCount} Objects", color = VelvetTheme.SunsetCoral, style = MaterialTheme.typography.caption)
                     }
                     Spacer(Modifier.height(4.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Default.History,
-                            null,
-                            tint = VelvetTheme.SlateBlue,
-                            modifier = Modifier.size(12.dp)
-                        )
+                        Icon(Icons.Default.History, null, tint = VelvetTheme.SlateBlue, modifier = Modifier.size(12.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text(
-                            "Modified: ${cluster.lastModified}",
-                            color = VelvetTheme.SlateBlue,
-                            style = MaterialTheme.typography.caption
-                        )
+                        Text("Modified: ${cluster.lastModified}", color = VelvetTheme.SlateBlue, style = MaterialTheme.typography.caption)
                     }
                 }
             }
