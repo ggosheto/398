@@ -284,7 +284,7 @@ fun FileListView(
             Row(Modifier.padding(top = 20.dp), verticalAlignment = Alignment.CenterVertically) {
                 StatItem("OBJECTS", displayFiles.size.toString(), isDarkMode)
                 Box(Modifier.padding(horizontal = 20.dp).width(1.dp).height(24.dp).background(subTextColor.copy(0.2f)))
-                StatItem("VOLUME", formatBytes(displayFiles.sumOf { it.size }), isDarkMode)
+                StatItem("VOLUME", formatReadableSize(displayFiles.sumOf { it.size }), isDarkMode)
             }
             DistributionBar(displayFiles)
         }
