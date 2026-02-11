@@ -21,14 +21,15 @@ fun SignUpView(onSignUpSuccess: () -> Unit, onNavigateToLogin: () -> Unit) {
     var confirmPassword by remember { mutableStateOf("") }
     var validationError by remember { mutableStateOf<String?>(null) }
 
-    val OxfordBlue = Color(0, 33, 71)
-    val Tan = Color(210, 180, 140)
+    val OxfordBlue = Color(0xFF181A2F)
+    val Tan1 = Color(0xFFFDA481)
+    val Tan = Color(0xFF54162B)
 
     Box(modifier = Modifier.fillMaxSize().background(OxfordBlue), contentAlignment = Alignment.Center) {
         Card(
             modifier = Modifier.width(450.dp).padding(16.dp),
             shape = RoundedCornerShape(24.dp), // More rounded for modern look
-            backgroundColor = Color(10, 43, 81), // Slightly lighter blue for depth
+            backgroundColor = Color(0xFF37415C), // Slightly lighter blue for depth
             elevation = 12.dp
         ) {
             Column(Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -68,7 +69,7 @@ fun SignUpView(onSignUpSuccess: () -> Unit, onNavigateToLogin: () -> Unit) {
                 if (validationError != null) {
                     Text(
                         text = validationError!!,
-                        color = Color(255, 80, 80), // Tech-red
+                        color = Color(0xFF54162B), // Tech-red
                         style = MaterialTheme.typography.caption,
                         modifier = Modifier.padding(top = 8.dp)
                     )
@@ -98,7 +99,7 @@ fun SignUpView(onSignUpSuccess: () -> Unit, onNavigateToLogin: () -> Unit) {
                     colors = ButtonDefaults.buttonColors(backgroundColor = Tan),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("REGISTER", color = OxfordBlue, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                    Text("REGISTER", color = Tan1, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
                 }
 
                 TextButton(onClick = onNavigateToLogin) {
@@ -123,7 +124,7 @@ fun isPasswordValid(password: String): Pair<Boolean, String?> {
 
 @Composable
 fun RequirementText(text: String, isMet: Boolean) {
-    val Tan = Color(210, 180, 140)
+    val Tan = Color(0xFFFDA481)
     Text(
         text = if (isMet) "✓ $text" else "○ $text",
         color = if (isMet) Tan else Color.Gray.copy(alpha = 0.5f),
