@@ -1,5 +1,8 @@
 package com.clusterview.demo
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,6 +18,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -26,6 +31,8 @@ import javax.swing.JFileChooser
 import javax.swing.UIManager
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
 
 // --- 1. DATA MODELS & ENUMS ---
 data class Cluster(
@@ -40,7 +47,8 @@ data class Cluster(
 data class FileMetadata(
     val name: String,
     val extension: String,
-    val sizeString: String
+    val sizeString: String,
+    val sizeBytes: Long = 0L
 )
 
 enum class SortOption { NAME, DATE, OBJECT_COUNT }
@@ -341,32 +349,47 @@ fun ModernClusterCard(cluster: Cluster, onDelete: () -> Unit, onClick: () -> Uni
     }
 }
 
+enum class SortMethod { NAME, SIZE, TYPE }
+
 @Composable
 fun ClusterDetailView(cluster: Cluster, onRefresh: () -> Unit, onBack: () -> Unit) {
-    // 1. Data Processing
+    // 1. DATA PROCESSING
     val filesInFolder = remember(cluster.path, cluster.lastModified) {
         File(cluster.path).listFiles()?.filter { it.isFile }?.map { file ->
-            FileMetadata(file.nameWithoutExtension, file.extension.uppercase(), formatReadableSize(file.length()))
+            FileMetadata(
+                name = file.nameWithoutExtension,
+                extension = file.extension.uppercase(),
+                sizeString = formatReadableSize(file.length()),
+                sizeBytes = file.length() // Added for accurate sorting
+            )
         } ?: emptyList()
     }
 
-    // 2. Calculate distribution for the visual bar
-    val distribution = remember(cluster.path, cluster.lastModified) {
-        getFileDistribution(cluster.path)
-    }
-
+    val distribution = remember(cluster.path, cluster.lastModified) { getFileDistribution(cluster.path) }
     val totalSizeBytes = remember(cluster.path, cluster.lastModified) {
         File(cluster.path).listFiles()?.filter { it.isFile }?.sumOf { it.length() } ?: 0L
     }
     val totalSizeString = formatReadableSize(totalSizeBytes)
 
-    var showRenameMenu by remember { mutableStateOf(false) }
-    var showBatchDialog by remember { mutableStateOf(false) }
-    var fileToRename by remember { mutableStateOf<FileMetadata?>(null) } // For single rename
+    // 2. UI STATE
+    var searchQuery by remember { mutableStateOf("") }
+    var currentSort by remember { mutableStateOf(SortMethod.NAME) }
+    var showSortMenu by remember { mutableStateOf(false) }
+    var selectedFileForSidebar by remember { mutableStateOf<FileMetadata?>(null) }
     var showRenameDialog by remember { mutableStateOf(false) }
     var prefixText by remember { mutableStateOf("") }
 
-    // --- RENAME DIALOG ---
+    // 3. SEARCH & SORT LOGIC
+    val processedFiles = remember(searchQuery, currentSort, filesInFolder) {
+        val filtered = filesInFolder.filter { it.name.contains(searchQuery, ignoreCase = true) }
+        when (currentSort) {
+            SortMethod.NAME -> filtered.sortedBy { it.name.lowercase() }
+            SortMethod.SIZE -> filtered.sortedByDescending { it.sizeBytes }
+            SortMethod.TYPE -> filtered.sortedBy { it.extension }
+        }
+    }
+
+    // --- DIALOGS (BATCH RENAME) ---
     if (showRenameDialog) {
         AlertDialog(
             onDismissRequest = { showRenameDialog = false },
@@ -374,202 +397,115 @@ fun ClusterDetailView(cluster: Cluster, onRefresh: () -> Unit, onBack: () -> Uni
             shape = RoundedCornerShape(16.dp),
             title = { Text("BATCH RENAME", color = Color.White, fontWeight = FontWeight.Bold) },
             text = {
-                Column {
-                    Text("Enter a prefix to add to all files in this cluster:", color = VelvetTheme.SoftSand)
-                    Spacer(Modifier.height(8.dp))
-                    TextField(
-                        value = prefixText,
-                        onValueChange = { prefixText = it },
-                        colors = TextFieldDefaults.textFieldColors(textColor = Color.White, cursorColor = VelvetTheme.SunsetCoral),
-                        placeholder = { Text("e.g. PROJECT_", color = VelvetTheme.SlateBlue) }
-                    )
-                }
+                TextField(
+                    value = prefixText,
+                    onValueChange = { prefixText = it },
+                    placeholder = { Text("Enter prefix...", color = VelvetTheme.SlateBlue) },
+                    colors = TextFieldDefaults.textFieldColors(textColor = Color.White)
+                )
             },
             confirmButton = {
                 TextButton(onClick = {
                     if (prefixText.isNotEmpty()) {
                         batchRenameFiles(cluster.path, prefixText)
-                        onRefresh() // Update the UI with new names
+                        onRefresh()
                         showRenameDialog = false
-                        prefixText = ""
                     }
-                }) {
-                    Text("APPLY", color = VelvetTheme.SunsetCoral, fontWeight = FontWeight.Bold)
-                }
+                }) { Text("APPLY", color = VelvetTheme.SunsetCoral) }
             },
             dismissButton = {
-                TextButton(onClick = { showRenameDialog = false }) {
-                    Text("CANCEL", color = VelvetTheme.SoftSand)
-                }
+                TextButton(onClick = { showRenameDialog = false }) { Text("CANCEL", color = Color.Gray) }
             }
         )
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(VelvetTheme.MidnightNavy)) {
-        // --- HEADER SECTION ---
-        Row(
-            Modifier.fillMaxWidth().padding(24.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(
-                    onClick = onBack,
-                    modifier = Modifier.background(VelvetTheme.DeepMaroon, RoundedCornerShape(8.dp))
-                ) {
-                    Icon(Icons.Default.ArrowBack, null, tint = VelvetTheme.SunsetCoral)
-                }
-                Spacer(Modifier.width(16.dp))
-                Column {
-                    Text(cluster.name, style = MaterialTheme.typography.h5, color = Color.White, fontWeight = FontWeight.Bold)
-                    Text(cluster.path, style = MaterialTheme.typography.caption, color = VelvetTheme.SlateBlue)
-                }
-            }
+    // --- MAIN LAYOUT ---
+    Row(modifier = Modifier.fillMaxSize().background(VelvetTheme.MidnightNavy)) {
 
-            // Refresh Button
-            IconButton(
-                onClick = onRefresh,
-                modifier = Modifier.background(VelvetTheme.SlateBlue, RoundedCornerShape(8.dp))
+        // LEFT SIDE: Content
+        Column(modifier = Modifier.weight(1f)) {
+            // HEADER
+            DetailHeader(cluster.name, cluster.path, onBack, onRefresh)
+
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = VelvetTheme.DeepOcean.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(topStart = 32.dp),
+                border = BorderStroke(1.dp, VelvetTheme.SlateBlue)
             ) {
-                Icon(Icons.Default.Refresh, null, tint = VelvetTheme.SunsetCoral)
+                LazyColumn(
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(vertical = 24.dp)
+                ) {
+                    item {
+                        DistributionPieChart(distribution, totalSizeString)
+                        Spacer(Modifier.height(24.dp))
+                    }
+
+                    // SEARCH & SORT ROW
+                    item {
+                        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                modifier = Modifier.weight(1f),
+                                placeholder = { Text("Search files...", color = VelvetTheme.SlateBlue) },
+                                leadingIcon = { Icon(Icons.Default.Search, null, tint = VelvetTheme.SunsetCoral) },
+                                colors = TextFieldDefaults.outlinedTextFieldColors(
+                                    textColor = Color.White,
+                                    focusedBorderColor = VelvetTheme.SunsetCoral,
+                                    unfocusedBorderColor = VelvetTheme.SlateBlue
+                                ),
+                                shape = RoundedCornerShape(12.dp),
+                                singleLine = true
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Box {
+                                IconButton(
+                                    onClick = { showSortMenu = true },
+                                    modifier = Modifier.size(52.dp).background(VelvetTheme.DeepMaroon, RoundedCornerShape(12.dp))
+                                ) {
+                                    Icon(Icons.Default.Sort, null, tint = VelvetTheme.SunsetCoral)
+                                }
+                                DropdownMenu(expanded = showSortMenu, onDismissRequest = { showSortMenu = false }, modifier = Modifier.background(VelvetTheme.DeepOcean)) {
+                                    DropdownMenuItem(onClick = { currentSort = SortMethod.NAME; showSortMenu = false }) { Text("Sort by Name", color = Color.White) }
+                                    DropdownMenuItem(onClick = { currentSort = SortMethod.SIZE; showSortMenu = false }) { Text("Sort by Size", color = Color.White) }
+                                    DropdownMenuItem(onClick = { currentSort = SortMethod.TYPE; showSortMenu = false }) { Text("Sort by Type", color = Color.White) }
+                                }
+                            }
+                        }
+                    }
+
+                    // FILE LIST
+                    items(processedFiles) { file ->
+                        Box(modifier = Modifier.clickable { selectedFileForSidebar = file }) {
+                            ModernFileRow(file)
+                        }
+                    }
+
+                    if (processedFiles.isEmpty() && searchQuery.isNotEmpty()) {
+                        item {
+                            Text("No files match '$searchQuery'", color = VelvetTheme.SlateBlue, modifier = Modifier.fillMaxWidth().padding(32.dp), textAlign = TextAlign.Center)
+                        }
+                    }
+                }
             }
         }
 
-        // --- MAIN CONTENT AREA ---
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = VelvetTheme.DeepOcean.copy(alpha = 0.5f),
-            shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
-            border = BorderStroke(1.dp, VelvetTheme.SlateBlue)
+        // RIGHT SIDE: INSPECTOR
+        AnimatedVisibility(
+            visible = selectedFileForSidebar != null,
+            enter = slideInHorizontally(initialOffsetX = { it }),
+            exit = slideOutHorizontally(targetOffsetX = { it })
         ) {
-            LazyColumn(
-                modifier = Modifier.padding(horizontal = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(vertical = 24.dp)
-            ) {
-                item {
-                    Spacer(Modifier.height(16.dp))
-
-                    // 1. KEEP THIS ONE (The Donut with the Size)
-                    DistributionPieChart(
-                        distribution = distribution,
-                        totalSize = totalSizeString
-                    )
-
-                    Spacer(Modifier.height(32.dp))
-                }
-
-                if (cluster.hasDuplicates) {
-                    item {
-                        Button(
-                            onClick = {
-                                val removed = removeDuplicates(cluster.path)
-                                println("Removed $removed duplicates")
-                                onRefresh() // Refresh UI to show they are gone
-                            },
-                            modifier = Modifier.fillMaxWidth().height(48.dp),
-                            colors = ButtonDefaults.buttonColors(backgroundColor = VelvetTheme.DeepMaroon),
-                            shape = RoundedCornerShape(12.dp),
-                            border = BorderStroke(1.dp, VelvetTheme.CrimsonRed)
-                        ) {
-                            Icon(Icons.Default.DeleteSweep, null, tint = VelvetTheme.CrimsonRed)
-                            Spacer(Modifier.width(12.dp))
-                            Text("CLEAN DUPLICATE FILES", color = Color.White, fontWeight = FontWeight.Bold)
-                        }
-                        Spacer(Modifier.height(16.dp))
-                    }
-                }
-
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text("CLUSTER MANIFEST", style = MaterialTheme.typography.overline, color = VelvetTheme.CrimsonRed)
-
-                        Box {
-                            TextButton(
-                                onClick = { showRenameMenu = true },
-                                modifier = Modifier.background(VelvetTheme.DeepMaroon, RoundedCornerShape(8.dp))
-                            ) {
-                                Icon(Icons.Default.Edit, null, tint = VelvetTheme.SunsetCoral, modifier = Modifier.size(14.dp))
-                                Spacer(Modifier.width(8.dp))
-                                Text("RENAME", color = VelvetTheme.SunsetCoral, style = MaterialTheme.typography.caption)
-                            }
-
-                            DropdownMenu(
-                                expanded = showRenameMenu,
-                                onDismissRequest = { showRenameMenu = false },
-                                modifier = Modifier.background(VelvetTheme.DeepOcean).border(1.dp, VelvetTheme.SlateBlue)
-                            ) {
-                                DropdownMenuItem(onClick = {
-                                    showRenameMenu = false
-                                    showBatchDialog = true
-                                }) {
-                                    Text("Rename All (Batch)", color = Color.White)
-                                }
-                                DropdownMenuItem(onClick = {
-                                    showRenameMenu = false
-                                    // This tells the user to click a file row instead
-                                    // Or we can just let them pick from a list
-                                }) {
-                                    Text("Rename Single File...", color = VelvetTheme.SlateBlue)
-                                }
-                            }
-                        }
-                    }
-                }
-
-                items(filesInFolder) { file ->
-                    Box(modifier = Modifier.clickable {
-                        fileToRename = file // Sets the state to open the dialog
-                    }) {
-                        ModernFileRow(file)
-                    }
-                }
-            }
-
-            fileToRename?.let { file ->
-                var newSingleName by remember { mutableStateOf(file.name) }
-
-                AlertDialog(
-                    onDismissRequest = { fileToRename = null },
-                    backgroundColor = VelvetTheme.DeepOcean,
-                    shape = RoundedCornerShape(16.dp),
-                    title = { Text("RENAME SINGLE FILE", color = Color.White, fontWeight = FontWeight.Bold) },
-                    text = {
-                        Column {
-                            Text("Original: ${file.name}.${file.extension.lowercase()}", color = VelvetTheme.SlateBlue, style = MaterialTheme.typography.caption)
-                            Spacer(Modifier.height(8.dp))
-                            TextField(
-                                value = newSingleName,
-                                onValueChange = { newSingleName = it },
-                                colors = TextFieldDefaults.textFieldColors(
-                                    textColor = Color.White,
-                                    backgroundColor = VelvetTheme.MidnightNavy
-                                ),
-                                singleLine = true
-                            )
-                        }
-                    },
-                    confirmButton = {
-                        TextButton(onClick = {
-                            val fullPath = "${cluster.path}/${file.name}.${file.extension.lowercase()}"
-                            val success = renameSingleFile(fullPath, newSingleName, file.extension.lowercase())
-                            if (success) {
-                                onRefresh() // Refresh to show the new name
-                            }
-                            fileToRename = null
-                        }) {
-                            Text("RENAME", color = VelvetTheme.SunsetCoral, fontWeight = FontWeight.Bold)
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { fileToRename = null }) {
-                            Text("CANCEL", color = VelvetTheme.SoftSand)
-                        }
-                    }
+            selectedFileForSidebar?.let { file ->
+                FileInspectorSidebar(
+                    file = file,
+                    clusterPath = cluster.path,
+                    clusterTotalSize = totalSizeBytes,
+                    onClose = { selectedFileForSidebar = null },
+                    onRefresh = onRefresh
                 )
             }
         }
@@ -864,4 +800,151 @@ fun renameSingleFile(oldPath: String, newName: String, extension: String): Boole
     val parent = file.parentFile
     val destination = File(parent, "$newName.$extension")
     return file.renameTo(destination)
+}
+
+@Composable
+fun FileInspectorSidebar(
+    file: FileMetadata,
+    clusterPath: String,
+    clusterTotalSize: Long,
+    onClose: () -> Unit,
+    onRefresh: () -> Unit
+) {
+    val fullPath = "$clusterPath/${file.name}.${file.extension.lowercase()}"
+    val fileObj = File(fullPath)
+    val sizeRatio = if (clusterTotalSize > 0) fileObj.length().toFloat() / clusterTotalSize else 0f
+
+    Column(
+        modifier = Modifier
+            .fillMaxHeight()
+            .width(320.dp)
+            .background(VelvetTheme.DeepOcean)
+            .drawBehind {
+                drawLine(VelvetTheme.SlateBlue, Offset(0f, 0f), Offset(0f, size.height), 2.dp.toPx())
+            }
+            .padding(24.dp)
+    ) {
+        // --- HEADER ---
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("FILE CONFIG", style = MaterialTheme.typography.overline, color = VelvetTheme.CrimsonRed)
+            IconButton(onClick = onClose, modifier = Modifier.size(28.dp)) {
+                Icon(Icons.Default.Close, null, tint = VelvetTheme.SoftSand)
+            }
+        }
+
+        // Brought the chart up (Reduced from 80.dp to 40.dp)
+        Spacer(Modifier.height(40.dp))
+
+        // --- STATISTICS ---
+        Text("WEIGHT IN CLUSTER", color = VelvetTheme.SoftSand, style = MaterialTheme.typography.overline)
+        Spacer(Modifier.height(16.dp))
+        Box(modifier = Modifier.size(140.dp).align(Alignment.CenterHorizontally), contentAlignment = Alignment.Center) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                drawArc(VelvetTheme.MidnightNavy, -90f, 360f, false, style = Stroke(18f))
+                drawArc(VelvetTheme.SunsetCoral, -90f, sizeRatio * 360f, false, style = Stroke(18f, cap = StrokeCap.Round))
+            }
+            Text("${(sizeRatio * 100).toInt()}%", color = Color.White, style = MaterialTheme.typography.h5, fontWeight = FontWeight.Bold)
+        }
+
+        Spacer(Modifier.height(40.dp))
+
+        // --- PARAMETERS ---
+        // Using high-readability labels
+        InspectorField("FILENAME", file.name)
+        InspectorField("TYPE / FORMAT", file.extension)
+        InspectorField("FILE SIZE", file.sizeString)
+
+        Spacer(Modifier.weight(1f))
+
+        // --- PRIMARY ACTION ---
+        Button(
+            onClick = { try { java.awt.Desktop.getDesktop().browse(fileObj.parentFile.toURI()) } catch(e: Exception) {} },
+            modifier = Modifier.fillMaxWidth().height(50.dp),
+            colors = ButtonDefaults.buttonColors(backgroundColor = VelvetTheme.DeepMaroon, contentColor = VelvetTheme.SunsetCoral),
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.dp, VelvetTheme.SunsetCoral.copy(alpha = 0.3f))
+        ) {
+            Icon(Icons.Default.Launch, null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(12.dp))
+            Text("SHOW IN EXPLORER", fontWeight = FontWeight.Bold)
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        // --- DESTRUCTIVE ACTION ---
+        TextButton(
+            onClick = {
+                if (fileObj.exists()) {
+                    fileObj.delete()
+                    onRefresh()
+                    onClose()
+                }
+            },
+            modifier = Modifier.fillMaxWidth().height(44.dp)
+        ) {
+            Icon(Icons.Default.DeleteForever, null, tint = VelvetTheme.CrimsonRed.copy(alpha = 0.8f), modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("DELETE PERMANENTLY", color = VelvetTheme.CrimsonRed.copy(alpha = 0.8f), style = MaterialTheme.typography.caption, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+fun InspectorField(label: String, value: String) {
+    Column(Modifier.padding(vertical = 10.dp)) {
+        Text(label, color = VelvetTheme.SoftSand, style = MaterialTheme.typography.caption, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(4.dp))
+        Text(value, color = Color.White, style = MaterialTheme.typography.body1)
+    }
+}
+
+@Composable
+fun DetailHeader(
+    name: String,
+    path: String,
+    onBack: () -> Unit,
+    onRefresh: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(24.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // Back Button
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier.background(VelvetTheme.DeepMaroon, RoundedCornerShape(8.dp))
+            ) {
+                Icon(Icons.Default.ArrowBack, null, tint = VelvetTheme.SunsetCoral)
+            }
+
+            Spacer(Modifier.width(16.dp))
+
+            // Folder Info
+            Column {
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.h5,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = path,
+                    style = MaterialTheme.typography.caption,
+                    color = VelvetTheme.SlateBlue
+                )
+            }
+        }
+
+        // Refresh Button
+        IconButton(
+            onClick = onRefresh,
+            modifier = Modifier.background(VelvetTheme.SlateBlue.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+        ) {
+            Icon(Icons.Default.Refresh, null, tint = VelvetTheme.SunsetCoral)
+        }
+    }
 }
