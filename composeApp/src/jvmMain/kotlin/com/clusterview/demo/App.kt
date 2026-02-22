@@ -34,6 +34,8 @@ fun App() {
     var currentScreen by remember {
         mutableStateOf(if (AuthManager.isUserRemembered()) "home" else "login")
     }
+    // Define this at the top of your App function
+    var selectedCluster by remember { mutableStateOf<Cluster?>(null) }
     var currentUser by remember {
         mutableStateOf<User?>(
             if (AuthManager.isUserRemembered()) {
@@ -79,13 +81,22 @@ fun App() {
                     }
                 )
 
-                "home" -> HomeView(
-                    user = currentUser,
-                    onLogoutSuccess = {
-                        currentUser = null
-                        currentScreen = "login"
-                    }
-                )
+                "HOME" -> {
+                    HomeView(
+                        // --- THE LOGOUT LOGIC ---
+                        onLogoutSuccess = {
+                            currentUser = null      // 1. Clear the current user data
+                            currentScreen = "LOGIN" // 2. Navigate back to the Login page
+                        },
+                        onClusterClick = { cluster ->
+                            selectedCluster = cluster
+                            currentScreen = "DETAIL"
+                        },
+                        onOpenMap = {
+                            currentScreen = "MAP"
+                        }
+                    )
+                }
 
                 "list" -> {
                     FileListView(
@@ -115,7 +126,7 @@ fun App() {
     var statusText by remember { mutableStateOf("System Ready") }
 
     // Navigation & Search State
-    var selectedCluster by remember { mutableStateOf<ClusterSummary?>(null) }
+    //var selectedCluster by remember { mutableStateOf<ClusterSummary?>(null) }
     var filesInCluster by remember { mutableStateOf(listOf<FileEntry>()) }
 
     /*MaterialTheme {

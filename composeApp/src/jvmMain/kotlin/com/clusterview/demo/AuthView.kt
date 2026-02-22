@@ -33,6 +33,15 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+
+val MidnightNavy = Color(0xFF181A2F)
+val DeepOcean = Color(0xFF242E49)
+val SlateBlue = Color(0xFF37415C)
+val SunsetCoral = Color(0xFFFDA481)
+val CrimsonRed = Color(0xFFB4182D)
+val DeepMaroon = Color(0xFF54162B)
+val SoftSand = Color(0xFFDFB6B2)
+
 @Composable
 fun LoginView(
     onAuthSuccess: (User) -> Unit,
@@ -44,15 +53,15 @@ fun LoginView(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var stayLoggedIn by remember { mutableStateOf(false) }
 
-    val OxfordBlue = Color(0, 33, 71)
-    val Tan = Color(210, 180, 140)
+    val OxfordBlue = Color(0xFF181A2F)
+    val Tan = Color(0xFFFDA481)
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
                 brush = Brush.verticalGradient(
-                    colors = listOf(Color(0, 20, 50), Color(0, 33, 71)) // Deep gradient
+                    colors = listOf(Color(0xFF242E49), Color(0xFF37415C)) // Deep gradient
                 )
             )
             .drawBehind {
@@ -72,9 +81,9 @@ fun LoginView(
                 .width(420.dp)
                 .padding(16.dp),
             shape = RoundedCornerShape(24.dp),
-            backgroundColor = Color(10, 43, 81), // Surface color
+            backgroundColor = Color(0xFF181A2F), // Surface color
             elevation = 20.dp, // High elevation for a "floating" look
-            border = BorderStroke(1.dp, Color(210, 180, 140).copy(alpha = 0.3f)) // The "Glowing" border
+            border = BorderStroke(1.dp, Color(0xFFFDA481).copy(alpha = 0.3f)) // The "Glowing" border
         ) {
             Column(
                 modifier = Modifier.padding(40.dp),
@@ -121,7 +130,7 @@ fun LoginView(
                 if (errorMessage != null) {
                     Text(
                         errorMessage!!,
-                        color = Color(255, 80, 80),
+                        color = Color(0xFF54162B),
                         modifier = Modifier.padding(top = 12.dp),
                         style = MaterialTheme.typography.caption
                     )
@@ -213,7 +222,7 @@ fun FuturisticTextField(
     label: String,
     isPassword: Boolean = false
 ) {
-    val Tan = Color(210, 180, 140)
+    val Tan = Color(0xFFFDA481)
     // State to track if password should be shown or hidden
     var passwordVisible by remember { mutableStateOf(false) }
 
