@@ -9,7 +9,6 @@ object DatabaseManager {
     private val storageFile = File("users_db.txt")
     private val registeredUsers = mutableListOf<User>()
 
-    // Hold one active connection instead of opening/closing constantly
     private var connection: Connection? = null
     init {
         loadUsersFromDisk()
@@ -27,7 +26,6 @@ object DatabaseManager {
     }
 
     private fun saveUserToDisk(user: User) {
-        // Append the new user to the file so they survive a restart
         val data = "${user.id}|${user.email}|${user.username}|${user.passwordHash}|${user.name}\n"
         storageFile.appendText(data)
     }
@@ -39,7 +37,6 @@ object DatabaseManager {
         return connection!!
     }
 
-    // Call this only when the app completely closes
     fun closeDatabase() {
         connection?.close()
     }
@@ -49,7 +46,6 @@ object DatabaseManager {
             val statement = conn.createStatement()
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_file_name ON files(name)")
 
-            // Create Clusters Table
             statement.executeUpdate("""
                 CREATE TABLE IF NOT EXISTS clusters (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -58,7 +54,6 @@ object DatabaseManager {
                 )
             """.trimIndent())
 
-            // Create Files Table
             statement.executeUpdate("""
                 CREATE TABLE IF NOT EXISTS files (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -125,7 +120,7 @@ object DatabaseManager {
                     }
                     pstmt.executeBatch()
                 }
-                conn.commit() // Commit all at once
+                conn.commit()
             } catch (e: Exception) {
                 conn.rollback()
                 throw e
@@ -138,7 +133,6 @@ object DatabaseManager {
             val statement = conn.createStatement()
             statement.executeUpdate("DELETE FROM files")
             statement.executeUpdate("DELETE FROM clusters")
-            // This resets the auto-increment IDs to 1
             statement.executeUpdate("DELETE FROM sqlite_sequence WHERE name='files' OR name='clusters'")
         }
     }
@@ -174,7 +168,7 @@ object DatabaseManager {
         getConnection().use { conn ->
             conn.prepareStatement(sql).use { pstmt ->
                 pstmt.setInt(1, clusterId)
-                pstmt.setString(2, "%$query%") // The % signs allow for "fuzzy" matching
+                pstmt.setString(2, "%$query%")
                 val rs = pstmt.executeQuery()
                 while (rs.next()) {
                     files.add(FileEntry(
@@ -198,17 +192,17 @@ object DatabaseManager {
             "pdf", "docx", "txt", "xlsx" -> 2 // Documents
             "mp4", "mov", "avi" -> 3 // Video
             "mp3", "wav", "flac" -> 4 // Audio
-            else -> 5 // Miscellaneous
+            else -> 5
         }
     }
 
     fun seedClusters() {
         val categories = listOf(
-            "Images" to "#FFD2B48C",    // Galactic Tan
-            "Documents" to "#FF4FC3F7", // Tech Blue
-            "Video" to "#FFBA68C8",     // Nebula Purple
-            "Audio" to "#FFFF8A65",     // Sun Flare Orange
-            "Archive" to "#FF90A4AE"    // Space Gray
+            "Images" to "#FFD2B48C",
+            "Documents" to "#FF4FC3F7",
+            "Video" to "#FFBA68C8",
+            "Audio" to "#FFFF8A65",
+            "Archive" to "#FF90A4AE"
         )
 
         getConnection().use { conn ->
@@ -245,7 +239,6 @@ object DatabaseManager {
 
     fun getUserById(userId: Int): User? {
         return try {
-            // Mocking a successful database return for now so your code runs
             User(id = userId, email = "user@example.com", username = "OlympiadCandidate", passwordHash = "mock_hash", name = "Olympiad Candidate")
         } catch (e: Exception) {
             null
@@ -261,26 +254,11 @@ object DatabaseManager {
         return emptyList()
     }
 
-    /*fun updateFileStar(fileId: Int, currentStatus: Boolean) {
-        val status = if (isStarred) 1 else 0
-        val sql = "UPDATE files SET is_starred = ? WHERE id = ?"
-        getConnection().use { conn ->
-            conn.prepareStatement(sql).use { pstmt ->
-                pstmt.setInt(1, newStatus)
-                pstmt.setInt(2, fileId)
-                pstmt.executeUpdate()
-            }
-        }
-    }*/
-    //private val registeredUsers = mutableListOf<User>()
-
     fun registerUser(email: String, pass: String): String? {
         // 1. Check if the email is already in our list
         if (registeredUsers.any { it.email.equals(email, ignoreCase = true) }) {
             return "CRITICAL ERROR: OPERATOR EMAIL ALREADY REGISTERED" // Return error message
         }
-
-        // 2. If it doesn't exist, create and add it
         val newUser = User(
             id = registeredUsers.size + 1,
             email = email,

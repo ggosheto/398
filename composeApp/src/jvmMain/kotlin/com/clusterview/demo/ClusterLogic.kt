@@ -4,25 +4,20 @@ import java.sql.Statement
 
 object ClusterLogic {
 
-    // This function looks at files without a cluster and groups them by extension
     fun generateInitialClusters() {
         val files = DatabaseManager.getAllFiles()
 
-        // Group files by their extension (e.g., pdf, jpg, docx)
         val groups = files.groupBy { it.extension }
 
         DatabaseManager.getConnection().use { conn ->
             conn.autoCommit = false
             try {
                 groups.forEach { (ext, fileList) ->
-                    // Name the cluster after the extension (e.g., "PDF")
                     val clusterName = if (ext.isEmpty()) "Unknown" else ext.uppercase()
                     val color = getRandomColor()
 
-                    // 1. Create the cluster entry and get its ID
                     val clusterId = insertClusterAndGetId(clusterName, color)
 
-                    // 2. Link all files in this group to that cluster ID
                     updateFilesWithClusterId(fileList.map { it.id }, clusterId)
                 }
                 conn.commit()

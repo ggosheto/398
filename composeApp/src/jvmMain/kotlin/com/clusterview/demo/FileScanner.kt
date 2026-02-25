@@ -8,12 +8,11 @@ object FileScanner {
         val root = File(rootPath)
         if (!root.exists() || !root.isDirectory) return
 
-        // 1. Ensure our clusters exist before we start assigning files to them
         DatabaseManager.seedClusters()
 
         val allFiles = mutableListOf<FileEntry>()
         val filesToProcess = root.walkTopDown()
-            .filter { it.isFile && !it.name.startsWith(".") } // Ignore hidden system files
+            .filter { it.isFile && !it.name.startsWith(".") }
             .toList()
 
         val totalCount = filesToProcess.size
@@ -22,7 +21,7 @@ object FileScanner {
             val ext = file.extension.lowercase()
 
             val entry = FileEntry(
-                id = 0, // SQLite handles this
+                id = 0,
                 name = file.name,
                 path = file.absolutePath,
                 extension = ext,
@@ -33,26 +32,23 @@ object FileScanner {
 
             allFiles.add(entry)
 
-            // Update progress every 50 files so the UI doesn't lag
             if (index % 50 == 0) {
                 val percentage = ((index.toFloat() / totalCount) * 100).toInt()
                 onProgress(percentage)
             }
         }
 
-        // 2. The "Supernova" Insert: Send everything to the DB in one transaction
         DatabaseManager.batchInsertFiles(allFiles)
         onProgress(100)
     }
 
-    // This is the "Smart" part of the clustering functionality
     private fun mapExtensionToClusterId(extension: String): Int {
         return when (extension) {
             "jpg", "jpeg", "png", "gif", "webp" -> 1 // Images
             "pdf", "doc", "docx", "txt", "md", "xlsx" -> 2 // Documents
             "mp4", "mkv", "mov", "avi" -> 3 // Video
             "mp3", "wav", "flac", "aac" -> 4 // Audio
-            else -> 5 // Archive/Misc
+            else -> 5
         }
     }
 
@@ -74,15 +70,12 @@ object FileScanner {
 
             when {
                 os.contains("win") -> {
-                    // Windows specific: Opens explorer and selects the file
                     Runtime.getRuntime().exec("explorer.exe /select, \"${file.absolutePath}\"")
                 }
                 os.contains("mac") -> {
-                    // macOS specific
                     Runtime.getRuntime().exec(arrayOf("open", "-R", file.absolutePath))
                 }
                 else -> {
-                    // Linux/Fallback: Just open the parent folder
                     java.awt.Desktop.getDesktop().open(file.parentFile)
                 }
             }

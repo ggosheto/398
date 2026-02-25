@@ -65,7 +65,7 @@ object VelvetTheme {
 }
 
 @Composable
-fun HomeView(user: User?, onLogoutSuccess: () -> Unit) {
+fun HomeView(user: User?, onClusterClick: (Cluster) -> Unit, onOpenMap: () -> Unit, onLogoutSuccess: () -> Unit) {
     val clusters = remember { mutableStateListOf<Cluster>().apply { addAll(loadClusters()) } }
     var selectedCluster by remember { mutableStateOf<Cluster?>(null) }
     var clusterToDelete by remember { mutableStateOf<Cluster?>(null) }
@@ -117,6 +117,15 @@ fun HomeView(user: User?, onLogoutSuccess: () -> Unit) {
                         backgroundColor = Color.Transparent,
                         elevation = 0.dp,
                         actions = {
+
+                            IconButton(onClick = onOpenMap) {
+                                Icon(
+                                    imageVector = Icons.Default.Share, // Or Icons.Default.Map if available
+                                    contentDescription = "Topology Map",
+                                    tint = VelvetTheme.SunsetCoral
+                                )
+                            }
+
                             IconButton(onClick = onLogoutSuccess) {
                                 Icon(Icons.Default.Logout, "Logout", tint = VelvetTheme.CrimsonRed)
                             }

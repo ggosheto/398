@@ -55,7 +55,6 @@ fun LoginView(
                 )
             )
             .drawBehind {
-                // Draw a subtle tech-grid
                 val gridSize = 40.dp.toPx()
                 for (x in 0..size.width.toInt() step gridSize.toInt()) {
                     drawLine(Color.White.copy(alpha = 0.05f), start = Offset(x.toFloat(), 0f), end = Offset(x.toFloat(), size.height))
@@ -71,15 +70,14 @@ fun LoginView(
                 .width(420.dp)
                 .padding(16.dp),
             shape = RoundedCornerShape(24.dp),
-            backgroundColor = Color(0xFF181A2F), // Surface color
-            elevation = 20.dp, // High elevation for a "floating" look
-            border = BorderStroke(1.dp, Color(0xFFFDA481).copy(alpha = 0.3f)) // The "Glowing" border
+            backgroundColor = Color(0xFF181A2F),
+            elevation = 20.dp,
+            border = BorderStroke(1.dp, Color(0xFFFDA481).copy(alpha = 0.3f))
         ) {
             Column(
                 modifier = Modifier.padding(40.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Header Section
                 Icon(
                     imageVector = Icons.Default.Lock,
                     contentDescription = null,
@@ -103,7 +101,6 @@ fun LoginView(
 
                 Spacer(Modifier.height(40.dp))
 
-                // Input Fields
                 FuturisticTextField(
                     value = email,
                     onValueChange = { email = it },
@@ -152,28 +149,10 @@ fun LoginView(
                     )
                 }
 
-                // Action Button
                 Button(
                     onClick = {
-                        /*isLoading = true
-                        val user = AuthManager.login(email, password, false)
-                        if (user != null) {
-                            onAuthSuccess(user)
-                        } else {
-                            errorMessage = "PROTOCOL ERROR: INVALID CREDENTIALS"
-                            isLoading = false
-                        }*/
-
-                        /*val authenticatedUser = DatabaseManager.verifyLogin(email, password)
-                        if (authenticatedUser != null) {
-                            onAuthSuccess(authenticatedUser)
-                        } else {
-                            errorMessage = "ACCESS DENIED: UNKNOWN OPERATOR"
-                            isLoading = false
-                        }*/
 
                         isLoading = true
-                        // We pass 'stayLoggedIn' as the 'remember' parameter
                         val authenticatedUser = AuthManager.login(email, password, stayLoggedIn)
 
                         if (authenticatedUser != null) {
@@ -196,7 +175,6 @@ fun LoginView(
 
                 Spacer(Modifier.height(24.dp))
 
-                // Navigation to Sign Up
                 TextButton(onClick = onNavigateToSignUp) {
                     Text("NEW OPERATOR? REGISTER PROFILE", color = Tan.copy(alpha = 0.7f), fontSize = 12.sp)
                 }
@@ -213,7 +191,6 @@ fun FuturisticTextField(
     isPassword: Boolean = false
 ) {
     val Tan = Color(0xFFFDA481)
-    // State to track if password should be shown or hidden
     var passwordVisible by remember { mutableStateOf(false) }
 
     OutlinedTextField(
@@ -229,12 +206,10 @@ fun FuturisticTextField(
             textColor = Color.White,
             cursorColor = Tan
         ),
-        // Logic to switch between hidden stars and plain text
         visualTransformation = if (isPassword && !passwordVisible)
             androidx.compose.ui.text.input.PasswordVisualTransformation()
         else androidx.compose.ui.text.input.VisualTransformation.None,
 
-        // The Eye Icon Button
         trailingIcon = {
             if (isPassword) {
                 val image = if (passwordVisible)

@@ -43,6 +43,14 @@ fun NavigationController() {
         Screen.DASHBOARD -> {
             HomeView(
                 user = currentUser,
+                onClusterClick = { cluster ->
+                    selectedCluster = cluster
+                    currentScreen = Screen.DETAIL
+                },
+                onOpenMap = {
+                    // This is the logic that runs when the button is clicked
+                    currentScreen = Screen.MAP
+                },
                 onLogoutSuccess = { currentScreen = Screen.LOGIN }
             )
         }
