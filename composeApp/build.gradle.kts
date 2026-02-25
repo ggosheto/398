@@ -4,7 +4,7 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
-    alias(libs.plugins.composeHotReload)
+    // alias(libs.plugins.composeHotReload) // Disabled due to compatibility issues with Kotlin 2.0.20
 }
 
 kotlin {
@@ -41,12 +41,17 @@ kotlin {
 
 compose.desktop {
     application {
+        // Option A: If using the .set() syntax
         mainClass = "com.clusterview.demo.MainKt"
 
+        // Option B: If using the = syntax (standard in many templates)
+        // mainClass = "com.clusterview.demo.MainKt"
+
         nativeDistributions {
-            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "com.clusterview.demo"
+            targetFormats(TargetFormat.Msi, TargetFormat.Exe)
+            packageName = "demo"
             packageVersion = "1.0.0"
         }
     }
 }
+

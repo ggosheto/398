@@ -11,16 +11,19 @@ data class FileEntry(
     var isStarred: Boolean = false
 )
 
-/*data class Cluster(
+data class Cluster(
     val id: Int,
     val name: String,
-    val status: String,
-    val nodeCount: Int
-)*/
+    val fileCount: Int,
+    val path: String,
+    val lastModified: String,
+    val hasDuplicates: Boolean = false
+)
 
 data class User(
     val id: Int,
     val email: String,
     val username: String,
-    val passwordHash: String
+    val passwordHash: String,
+    val name: String
 )

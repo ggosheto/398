@@ -1,116 +1,91 @@
-import androidx.compose.foundation.*
+package com.clusterview.demo
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Hub
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.font.FontWeight
-import com.clusterview.demo.VelvetTheme
-import com.clusterview.demo.Cluster // 👈 Add this line!
+import kotlin.math.roundToInt
 
 @Composable
-fun VisualizationMapView(clusters: List<Cluster>, onBack: () -> Unit) {
-    Box(modifier = Modifier.fillMaxSize().background(VelvetTheme.MidnightNavy)) {
+fun VisualizationMapView(
+    clusters: List<Cluster>,
+    onClusterClick: (Cluster) -> Unit,
+    onBack: () -> Unit
+) {
+    // Map View State
+    var scale by remember { mutableStateOf(1f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
 
-        // 1. DYNAMIC GRID BACKGROUND
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val gridSpacing = 60.dp.toPx()
-            for (x in 0..size.width.toInt() step gridSpacing.toInt()) {
-                drawLine(VelvetTheme.SlateBlue.copy(alpha = 0.15f), Offset(x.toFloat(), 0f), Offset(x.toFloat(), size.height), 1f)
-            }
-            for (y in 0..size.height.toInt() step gridSpacing.toInt()) {
-                drawLine(VelvetTheme.SlateBlue.copy(alpha = 0.15f), Offset(0f, y.toFloat()), Offset(size.width, y.toFloat()), 1f)
-            }
-        }
-
-        // 2. HEADER AREA
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(24.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Button(
-                onClick = onBack,
-                colors = ButtonDefaults.buttonColors(backgroundColor = VelvetTheme.DeepMaroon),
-                shape = RoundedCornerShape(8.dp),
-                border = BorderStroke(1.dp, VelvetTheme.SunsetCoral.copy(alpha = 0.5f))
-            ) {
-                Icon(Icons.Default.ArrowBack, "Back", tint = VelvetTheme.SunsetCoral, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text("BACK TO DASHBOARD", color = Color.White, style = MaterialTheme.typography.caption, fontWeight = FontWeight.Bold)
-            }
-
-            Spacer(Modifier.width(24.dp))
-
-            Column {
-                Text("SYSTEM TOPOLOGY MAP", color = Color.White, style = MaterialTheme.typography.h6, fontWeight = FontWeight.Bold)
-                Text("${clusters.size} Active Clusters Detected", color = VelvetTheme.SunsetCoral, style = MaterialTheme.typography.overline)
-            }
-        }
-
-        // 3. CLUSTER NODES DISPLAY
-        // This spreads the clusters out across the screen
-        Box(modifier = Modifier.fillMaxSize()) {
+    // Store node positions in a map so they can be dragged individually
+    val nodePositions = remember {
+        mutableStateMapOf<Int, Offset>().apply {
             clusters.forEachIndexed { index, cluster ->
-                // Basic math to space them out (Can be replaced with Drag-and-Drop later)
-                val xOffset = 100 + (index % 3) * 300
-                val yOffset = 150 + (index / 3) * 250
-
-                MapNode(cluster, xOffset.dp, yOffset.dp)
+                this[cluster.id] = Offset(200f + (index * 250f), 300f)
             }
         }
-
-        // BOTTOM CAPTION
-        Text(
-            "CLUSTER_VIEW // VISUALIZATION_ENGINE_V1.0",
-            modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
-            color = VelvetTheme.SlateBlue.copy(alpha = 0.4f),
-            style = MaterialTheme.typography.overline,
-            letterSpacing = 2.sp
-        )
     }
-}
 
-@Composable
-fun MapNode(cluster: Cluster, x: Dp, y: Dp) {
-    Column(
-        modifier = Modifier.offset(x, y),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
+    Box(modifier = Modifier.fillMaxSize().background(Color(0xFF121212))) {
+        // The Zoomable/Draggable Canvas
         Box(
             modifier = Modifier
-                .size(90.dp)
-                .background(VelvetTheme.DeepOcean.copy(alpha = 0.8f), CircleShape)
-                .border(2.dp, VelvetTheme.SunsetCoral, CircleShape)
-                .padding(4.dp),
-            contentAlignment = Alignment.Center
+                .fillMaxSize()
+                .pointerInput(Unit) {
+                    detectTransformGestures { _, pan, zoom, _ ->
+                        scale *= zoom
+                        offset += pan
+                    }
+                }
+                .graphicsLayer(
+                    scaleX = scale,
+                    scaleY = scale,
+                    translationX = offset.x,
+                    translationY = offset.y
+                )
         ) {
-            // Inner decorative ring
-            Box(Modifier.fillMaxSize().border(1.dp, VelvetTheme.SlateBlue.copy(alpha = 0.3f), CircleShape))
+            clusters.forEach { cluster ->
+                val pos = nodePositions[cluster.id] ?: Offset.Zero
 
-            Icon(Icons.Default.Hub, null, tint = Color.White, modifier = Modifier.size(32.dp))
+                // Individual Node
+                Box(
+                    modifier = Modifier
+                        .offset { IntOffset(pos.x.roundToInt(), pos.y.roundToInt()) }
+                        .size(120.dp)
+                        .background(Color.DarkGray, CircleShape)
+                        .clickable { onClusterClick(cluster) }
+                        .pointerInput(cluster.id) {
+                            detectDragGestures { change, dragAmount ->
+                                change.consume()
+                                nodePositions[cluster.id] = (nodePositions[cluster.id] ?: Offset.Zero) + dragAmount
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(cluster.name, color = Color.White, style = MaterialTheme.typography.labelLarge)
+                        Text("${cluster.fileCount} files", color = Color.Gray, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
         }
 
-        Spacer(Modifier.height(12.dp))
-
-        Surface(
-            color = VelvetTheme.DeepMaroon.copy(alpha = 0.9f),
-            shape = RoundedCornerShape(4.dp),
-            border = BorderStroke(1.dp, VelvetTheme.SlateBlue)
+        // Overlay UI
+        Button(
+            onClick = onBack,
+            modifier = Modifier.padding(16.dp).align(Alignment.TopStart)
         ) {
-            Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(cluster.name.uppercase(), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                Text(cluster.path, color = VelvetTheme.SoftSand, fontSize = 8.sp, maxLines = 1)
-            }
+            Text("← Back to Dashboard")
         }
     }
 }

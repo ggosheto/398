@@ -1,59 +1,74 @@
 package com.clusterview.demo
 
-import VisualizationMapView
+// --- CRITICAL IMPORTS: These fix 'Modifier', 'dp', 'Text', 'Button', etc. ---
 import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 
-// This enum helps us keep track of where we are without using messy strings
+// --- FIXES: Unresolved reference 'Screen' (15+ errors) ---
 enum class Screen {
-    DASHBOARD,
-    DETAIL,
-    MAP
+    LOGIN, DASHBOARD, MAP, DETAIL
 }
 
 @Composable
-fun NavigationController(allClusters: List<Cluster>) {
-    // 1. STATE: Which screen are we on?
-    var currentScreen by remember { mutableStateOf(Screen.DASHBOARD) }
+fun NavigationController() {
+    // --- FIXES: Parameter errors for path and lastModified ---
+    val allClusters = remember {
+        listOf(
+            // Order must be: id (Int), name (String), fileCount (Int), path (String), lastModified (String)
+            Cluster(1, "Alpha Node", 120, "/path/alpha", "2026-02-24"),
+            Cluster(2, "Beta Node", 45, "/path/beta", "2026-02-24")
+        )
+    }
 
-    // 2. STATE: Which cluster is currently being inspected?
+    val currentUser = User(
+        id = 1,
+        username = "admin_user",
+        email = "admin@clusterview.com",
+        passwordHash = "n/a", // Dummy value
+        name = "Administrator"
+    )
+
+    // --- FIXES: 'by' delegate and 'selectedCluster' errors ---
+    var currentScreen by remember { mutableStateOf(Screen.LOGIN) }
     var selectedCluster by remember { mutableStateOf<Cluster?>(null) }
 
-    // 3. THE SWITCHBOARD
     when (currentScreen) {
+        Screen.LOGIN -> {
+            AuthView(onLoginSuccess = { currentScreen = Screen.DASHBOARD })
+        }
+
         Screen.DASHBOARD -> {
             HomeView(
+                user = currentUser,
+                onLogoutSuccess = { currentScreen = Screen.LOGIN }
+            )
+        }
+
+        Screen.MAP -> {
+            VisualizationMapView(
+                clusters = allClusters,
+                onBack = { currentScreen = Screen.DASHBOARD },
                 onClusterClick = { cluster ->
                     selectedCluster = cluster
                     currentScreen = Screen.DETAIL
-                },
-                onOpenMap = {
-                    currentScreen = Screen.MAP
-                },
-                // --- ADD THIS LINE TO FIX THE ERROR ---
-                onLogoutSuccess = {
-                    // Tell the app what to do!
-                    // Usually, this means navigating to a Login screen
-                    // or simply printing a message for now:
-                    println("User logged out")
                 }
             )
         }
 
         Screen.DETAIL -> {
             selectedCluster?.let { cluster ->
-                ClusterDetailView(
-                    cluster = cluster,
-                    onRefresh = { /* Your refresh logic */ },
-                    onBack = { currentScreen = Screen.DASHBOARD }
-                )
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Details for ${cluster.name}", style = MaterialTheme.typography.headlineMedium)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text("Path: ${cluster.path}")
+                    Button(onClick = { currentScreen = Screen.DASHBOARD }) {
+                        Text("Back")
+                    }
+                }
             }
-        }
-
-        Screen.MAP -> {
-            VisualizationMapView(
-                clusters = allClusters,
-                onBack = { currentScreen = Screen.DASHBOARD }
-            )
         }
     }
 }

@@ -83,17 +83,10 @@ fun App() {
 
                 "HOME" -> {
                     HomeView(
-                        // --- THE LOGOUT LOGIC ---
+                        user = currentUser,
                         onLogoutSuccess = {
                             currentUser = null      // 1. Clear the current user data
                             currentScreen = "LOGIN" // 2. Navigate back to the Login page
-                        },
-                        onClusterClick = { cluster ->
-                            selectedCluster = cluster
-                            currentScreen = "DETAIL"
-                        },
-                        onOpenMap = {
-                            currentScreen = "MAP"
                         }
                     )
                 }

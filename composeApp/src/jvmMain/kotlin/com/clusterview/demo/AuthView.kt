@@ -18,20 +18,10 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
-
-import androidx.compose.material.*
-
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.runtime.*
 
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
-
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
 
 val MidnightNavy = Color(0xFF181A2F)
@@ -258,3 +248,21 @@ fun FuturisticTextField(
         }
     )
 }
+
+@Composable
+fun AuthView(onLoginSuccess: () -> Unit) {
+    var showSignUp by remember { mutableStateOf(false) }
+
+    if (showSignUp) {
+        SignUpView(
+            onSignUpSuccess = { onLoginSuccess() },
+            onNavigateToLogin = { showSignUp = false }
+        )
+    } else {
+        LoginView(
+            onAuthSuccess = { onLoginSuccess() },
+            onNavigateToSignUp = { showSignUp = true }
+        )
+    }
+}
+

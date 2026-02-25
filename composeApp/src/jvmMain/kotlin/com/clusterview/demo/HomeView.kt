@@ -17,7 +17,6 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -32,17 +31,15 @@ import javax.swing.UIManager
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.sp
 
-// --- 1. DATA MODELS & ENUMS ---
-data class Cluster(
+/*data class Cluster(
     val id: Int,
     val name: String,
-    val path: String,
     val fileCount: Int,
+    val path: String,
     val lastModified: String,
     val hasDuplicates: Boolean = false
-)
+)*/
 
 data class FileMetadata(
     val name: String,
@@ -53,7 +50,6 @@ data class FileMetadata(
 
 enum class SortOption { NAME, DATE, OBJECT_COUNT }
 
-// --- 2. THEME SYSTEM ---
 object VelvetTheme {
     val MidnightNavy = Color(0xFF181A2F)
     val DeepOcean = Color(0xFF242E49)
@@ -68,165 +64,158 @@ object VelvetTheme {
     )
 }
 
-// --- 3. MAIN APP VIEW ---
 @Composable
-fun HomeView(onClusterClick: (Cluster) -> Unit,
-             onOpenMap: () -> Unit,
-             onLogoutSuccess: () -> Unit) {
+fun HomeView(user: User?, onLogoutSuccess: () -> Unit) {
     val clusters = remember { mutableStateListOf<Cluster>().apply { addAll(loadClusters()) } }
+    var selectedCluster by remember { mutableStateOf<Cluster?>(null) }
     var clusterToDelete by remember { mutableStateOf<Cluster?>(null) }
 
-    // Search and Sort State
+
     var searchTerm by remember { mutableStateOf("") }
     var currentSort by remember { mutableStateOf(SortOption.NAME) }
     var sortMenuExpanded by remember { mutableStateOf(false) }
 
-    // Logic: Filter and then Sort the list
     val filteredClusters = clusters
         .filter { it.name.contains(searchTerm, ignoreCase = true) }
         .sortedWith(compareBy {
             when (currentSort) {
                 SortOption.NAME -> it.name.lowercase()
                 SortOption.DATE -> it.lastModified
-                SortOption.OBJECT_COUNT -> -it.fileCount // Descending
+                SortOption.OBJECT_COUNT -> -it.fileCount
             }
         })
 
     Box(modifier = Modifier.fillMaxSize().background(VelvetTheme.CoreGradient)) {
-        Scaffold(
-            backgroundColor = Color.Transparent,
-            topBar = {
-                TopAppBar(
-                    title = {
-                        Column {
-                            Text("CORE CONTROL", color = VelvetTheme.SunsetCoral, fontWeight = FontWeight.ExtraBold)
-                            Text("SYSTEM NODE MANAGEMENT", color = VelvetTheme.SlateBlue, style = MaterialTheme.typography.overline)
-                        }
-                    },
-                    backgroundColor = Color.Transparent,
-                    elevation = 0.dp,
-                    actions = {
-                        // Global Action: Open the Visualization Map
-                        Button(
-                            onClick = onOpenMap,
-                            colors = ButtonDefaults.buttonColors(backgroundColor = VelvetTheme.DeepMaroon),
-                            shape = RoundedCornerShape(8.dp),
-                            border = BorderStroke(1.dp, VelvetTheme.SunsetCoral.copy(alpha = 0.5f)),
-                            modifier = Modifier.padding(end = 16.dp).height(36.dp)
-                        ) {
-                            Icon(Icons.Default.Map, null, tint = VelvetTheme.SunsetCoral, modifier = Modifier.size(16.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("TOPOLOGY MAP", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        }
-                        Spacer(Modifier.width(8.dp))
-
-                        // 2. THE RESTORED LOGOUT BUTTON
-                        IconButton(onClick = onLogoutSuccess) {
-                            Icon(
-                                imageVector = Icons.Default.Logout,
-                                contentDescription = "Logout",
-                                tint = VelvetTheme.CrimsonRed // Gives it that "Exit/Warning" color
+        if (selectedCluster != null) {
+            ClusterDetailView(
+                cluster = selectedCluster!!,
+                onBack = { selectedCluster = null },
+                onRefresh = {
+                    val current = selectedCluster!!
+                    val folder = File(current.path)
+                    if (folder.exists()) {
+                        val newCount = folder.listFiles()?.filter { it.isFile }?.size ?: 0
+                        val newTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("MMM dd, yyyy (HH:mm)"))
+                        val duplicatesFound = hasDuplicates(current.path)
+                        val index = clusters.indexOfFirst { it.id == current.id }
+                        if (index != -1) {
+                            val updated = current.copy(
+                                fileCount = newCount,
+                                lastModified = newTime,
+                                hasDuplicates = duplicatesFound
                             )
                         }
                     }
-                )
-            },
-            floatingActionButton = {
-                FloatingActionButton(
-                    onClick = {
-                        val folder = pickFolderNatively()
-                        folder?.let {
-                            if (clusters.none { c -> c.path == it.absolutePath }) {
-                                val count = it.listFiles()?.filter { f -> f.isFile }?.size ?: 0
-                                val time = LocalDateTime.now().format(DateTimeFormatter.ofPattern("MMM dd, yyyy"))
-                                val newCluster = Cluster(it.name.hashCode(), it.name, it.absolutePath, count, time)
-                                clusters.add(newCluster)
-                                saveClusters(clusters)
+                }
+            )
+        } else {
+            Scaffold(
+                backgroundColor = Color.Transparent,
+                topBar = {
+                    TopAppBar(
+                        title = { Text("CORE CONTROL", color = VelvetTheme.SunsetCoral, fontWeight = FontWeight.ExtraBold) },
+                        backgroundColor = Color.Transparent,
+                        elevation = 0.dp,
+                        actions = {
+                            IconButton(onClick = onLogoutSuccess) {
+                                Icon(Icons.Default.Logout, "Logout", tint = VelvetTheme.CrimsonRed)
                             }
                         }
-                    },
-                    backgroundColor = VelvetTheme.CrimsonRed,
-                    contentColor = VelvetTheme.SunsetCoral,
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add")
-                }
-            }
-        ) { padding ->
-            Column(modifier = Modifier.padding(padding).padding(horizontal = 24.dp)) {
-
-                // --- SEARCH & SORT ROW ---
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    TextField(
-                        value = searchTerm,
-                        onValueChange = { searchTerm = it },
-                        modifier = Modifier.weight(1f).border(1.dp, VelvetTheme.SlateBlue, RoundedCornerShape(12.dp)),
-                        placeholder = { Text("Search data nodes...", color = VelvetTheme.SlateBlue) },
-                        colors = TextFieldDefaults.textFieldColors(
-                            backgroundColor = VelvetTheme.DeepOcean.copy(alpha = 0.5f),
-                            textColor = Color.White,
-                            cursorColor = VelvetTheme.SunsetCoral,
-                            focusedIndicatorColor = Color.Transparent,
-                            unfocusedIndicatorColor = Color.Transparent
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        leadingIcon = { Icon(Icons.Default.Search, null, tint = VelvetTheme.SunsetCoral) },
-                        singleLine = true
                     )
-
-                    Spacer(Modifier.width(12.dp))
-
-                    // Sort Toggle Button
-                    Box {
-                        IconButton(
-                            onClick = { sortMenuExpanded = true },
-                            modifier = Modifier
-                                .background(VelvetTheme.DeepOcean, RoundedCornerShape(12.dp))
-                                .border(1.dp, VelvetTheme.SlateBlue, RoundedCornerShape(12.dp))
-                                .size(56.dp)
-                        ) {
-                            Icon(Icons.Default.Sort, "Sort", tint = VelvetTheme.SunsetCoral)
-                        }
-
-                        DropdownMenu(
-                            expanded = sortMenuExpanded,
-                            onDismissRequest = { sortMenuExpanded = false },
-                            modifier = Modifier.background(VelvetTheme.DeepOcean).border(1.dp, VelvetTheme.SlateBlue)
-                        ) {
-                            DropdownMenuItem(onClick = { currentSort = SortOption.NAME; sortMenuExpanded = false }) {
-                                Text("Sort by Name", color = Color.White)
+                },
+                floatingActionButton = {
+                    FloatingActionButton(
+                        onClick = {
+                            val folder = pickFolderNatively()
+                            folder?.let {
+                                if (clusters.none { c -> c.path == it.absolutePath }) {
+                                    val count = it.listFiles()?.filter { f -> f.isFile }?.size ?: 0
+                                    val time = LocalDateTime.now().format(DateTimeFormatter.ofPattern("MMM dd, yyyy"))
+                                    val newCluster = Cluster(it.name.hashCode(), it.name, count, it.absolutePath, time)
+                                    clusters.add(newCluster)
+                                    saveClusters(clusters)
+                                }
                             }
-                            DropdownMenuItem(onClick = { currentSort = SortOption.DATE; sortMenuExpanded = false }) {
-                                Text("Sort by Date", color = Color.White)
-                            }
-                            DropdownMenuItem(onClick = { currentSort = SortOption.OBJECT_COUNT; sortMenuExpanded = false }) {
-                                Text("Sort by Object Count", color = Color.White)
-                            }
-                        }
+                        },
+                        backgroundColor = VelvetTheme.CrimsonRed,
+                        contentColor = VelvetTheme.SunsetCoral,
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Add")
                     }
                 }
+            ) { padding ->
+                Column(modifier = Modifier.padding(padding).padding(horizontal = 24.dp)) {
 
-                // --- GRID CONTENT ---
-                if (filteredClusters.isEmpty()) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("NO MATCHING DATA NODES", color = VelvetTheme.SlateBlue, style = MaterialTheme.typography.overline)
-                    }
-                } else {
-                    LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 280.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        modifier = Modifier.fillMaxSize()
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        items(filteredClusters) { cluster ->
-                            ModernClusterCard(
-                                cluster = cluster,
-                                onDelete = { clusterToDelete = cluster },
-                                onClick = { onClusterClick(cluster) } // Pass back to NavigationController
-                            )
+                        TextField(
+                            value = searchTerm,
+                            onValueChange = { searchTerm = it },
+                            modifier = Modifier.weight(1f).border(1.dp, VelvetTheme.SlateBlue, RoundedCornerShape(12.dp)),
+                            placeholder = { Text("Search clusters...", color = VelvetTheme.SlateBlue) },
+                            colors = TextFieldDefaults.textFieldColors(
+                                backgroundColor = VelvetTheme.DeepOcean.copy(alpha = 0.5f),
+                                textColor = Color.White,
+                                cursorColor = VelvetTheme.SunsetCoral,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            leadingIcon = { Icon(Icons.Default.Search, null, tint = VelvetTheme.SunsetCoral) },
+                            singleLine = true
+                        )
+
+                        Spacer(Modifier.width(12.dp))
+
+                        Box {
+                            IconButton(
+                                onClick = { sortMenuExpanded = true },
+                                modifier = Modifier
+                                    .background(VelvetTheme.DeepOcean, RoundedCornerShape(12.dp))
+                                    .border(1.dp, VelvetTheme.SlateBlue, RoundedCornerShape(12.dp))
+                                    .size(56.dp)
+                            ) {
+                                Icon(Icons.Default.Sort, "Sort", tint = VelvetTheme.SunsetCoral)
+                            }
+
+                            DropdownMenu(
+                                expanded = sortMenuExpanded,
+                                onDismissRequest = { sortMenuExpanded = false },
+                                modifier = Modifier.background(VelvetTheme.DeepOcean).border(1.dp, VelvetTheme.SlateBlue)
+                            ) {
+                                DropdownMenuItem(onClick = { currentSort = SortOption.NAME; sortMenuExpanded = false }) {
+                                    Text("Sort by Name", color = Color.White)
+                                }
+                                DropdownMenuItem(onClick = { currentSort = SortOption.DATE; sortMenuExpanded = false }) {
+                                    Text("Sort by Date", color = Color.White)
+                                }
+                                DropdownMenuItem(onClick = { currentSort = SortOption.OBJECT_COUNT; sortMenuExpanded = false }) {
+                                    Text("Sort by Size", color = Color.White)
+                                }
+                            }
+                        }
+                    }
+
+                    if (filteredClusters.isEmpty()) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text("NO MATCHING DATA NODES", color = VelvetTheme.SlateBlue)
+                        }
+                    } else {
+                        LazyVerticalGrid(
+                            columns = GridCells.Adaptive(minSize = 240.dp),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            items(filteredClusters) { cluster ->
+                                ModernClusterCard(
+                                    cluster = cluster,
+                                    onDelete = { clusterToDelete = cluster },
+                                    onClick = { selectedCluster = cluster }
+                                )
+                            }
                         }
                     }
                 }
@@ -234,7 +223,6 @@ fun HomeView(onClusterClick: (Cluster) -> Unit,
         }
     }
 
-    // --- DELETE CONFIRMATION ---
     if (clusterToDelete != null) {
         AlertDialog(
             onDismissRequest = { clusterToDelete = null },
@@ -243,7 +231,7 @@ fun HomeView(onClusterClick: (Cluster) -> Unit,
             title = { Text("UNLINK CLUSTER?", color = Color.White, fontWeight = FontWeight.Bold) },
             text = {
                 Text(
-                    "Remove node mapping for '${clusterToDelete?.name}'? Local files will not be deleted.",
+                    "Are you sure you want to remove '${clusterToDelete?.name}'? (Files remain on disk).",
                     color = VelvetTheme.SoftSand
                 )
             },
@@ -253,7 +241,7 @@ fun HomeView(onClusterClick: (Cluster) -> Unit,
                     saveClusters(clusters)
                     clusterToDelete = null
                 }) {
-                    Text("UNLINK", color = VelvetTheme.CrimsonRed, fontWeight = FontWeight.Bold)
+                    Text("REMOVE", color = VelvetTheme.CrimsonRed, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -265,18 +253,15 @@ fun HomeView(onClusterClick: (Cluster) -> Unit,
     }
 }
 
-// --- 4. UI COMPONENTS ---
 
 @Composable
 fun ModernClusterCard(cluster: Cluster, onDelete: () -> Unit, onClick: () -> Unit) {
-    // Calculate the "heat" color based on the file count
     val heatColor = remember(cluster.fileCount) { getHeatmapColor(cluster.fileCount) }
 
     Box(modifier = Modifier.fillMaxWidth().aspectRatio(1.2f)) {
         Card(
             shape = RoundedCornerShape(20.dp),
             backgroundColor = VelvetTheme.DeepOcean,
-            // UPDATED: Border now uses the heatColor
             border = BorderStroke(2.dp, heatColor),
             elevation = 8.dp,
             modifier = Modifier.fillMaxSize().clickable { onClick() }
@@ -297,7 +282,7 @@ fun ModernClusterCard(cluster: Cluster, onDelete: () -> Unit, onClick: () -> Uni
                         Icon(
                             Icons.Default.Storage,
                             null,
-                            tint = heatColor, // Icon tint matches heat for consistency
+                            tint = heatColor,
                             modifier = Modifier.padding(8.dp).size(24.dp)
                         )
                     }
@@ -308,7 +293,6 @@ fun ModernClusterCard(cluster: Cluster, onDelete: () -> Unit, onClick: () -> Uni
                             shape = RoundedCornerShape(8.dp),
                             border = BorderStroke(1.dp, VelvetTheme.CrimsonRed),
                             modifier = Modifier.clickable {
-                                // We can trigger an action or simply open the detail view
                                 onClick()
                             }
                         ) {
@@ -320,7 +304,6 @@ fun ModernClusterCard(cluster: Cluster, onDelete: () -> Unit, onClick: () -> Uni
                         }
                     }
 
-                    // The "X" Button (Mirrored)
                     Surface(
                         color = VelvetTheme.DeepMaroon,
                         shape = RoundedCornerShape(8.dp),
@@ -375,7 +358,6 @@ fun ClusterDetailView(cluster: Cluster, onRefresh: () -> Unit, onBack: () -> Uni
     }
     val totalSizeString = formatReadableSize(totalSizeBytes)
 
-    // 2. UI STATE
     var searchQuery by remember { mutableStateOf("") }
     var currentSort by remember { mutableStateOf(SortMethod.NAME) }
     var showSortMenu by remember { mutableStateOf(false) }
@@ -383,7 +365,6 @@ fun ClusterDetailView(cluster: Cluster, onRefresh: () -> Unit, onBack: () -> Uni
     var showRenameDialog by remember { mutableStateOf(false) }
     var prefixText by remember { mutableStateOf("") }
 
-    // 3. SEARCH & SORT LOGIC
     val processedFiles = remember(searchQuery, currentSort, filesInFolder) {
         val filtered = filesInFolder.filter { it.name.contains(searchQuery, ignoreCase = true) }
         when (currentSort) {
@@ -393,7 +374,6 @@ fun ClusterDetailView(cluster: Cluster, onRefresh: () -> Unit, onBack: () -> Uni
         }
     }
 
-    // --- DIALOGS (BATCH RENAME) ---
     if (showRenameDialog) {
         AlertDialog(
             onDismissRequest = { showRenameDialog = false },
@@ -423,12 +403,9 @@ fun ClusterDetailView(cluster: Cluster, onRefresh: () -> Unit, onBack: () -> Uni
         )
     }
 
-    // --- MAIN LAYOUT ---
     Row(modifier = Modifier.fillMaxSize().background(VelvetTheme.MidnightNavy)) {
 
-        // LEFT SIDE: Content
         Column(modifier = Modifier.weight(1f)) {
-            // HEADER
             DetailHeader(cluster.name, cluster.path, onBack, onRefresh)
 
             Surface(
@@ -447,7 +424,6 @@ fun ClusterDetailView(cluster: Cluster, onRefresh: () -> Unit, onBack: () -> Uni
                         Spacer(Modifier.height(24.dp))
                     }
 
-                    // SEARCH & SORT ROW
                     item {
                         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             OutlinedTextField(
@@ -481,7 +457,6 @@ fun ClusterDetailView(cluster: Cluster, onRefresh: () -> Unit, onBack: () -> Uni
                         }
                     }
 
-                    // FILE LIST
                     items(processedFiles) { file ->
                         Box(modifier = Modifier.clickable { selectedFileForSidebar = file }) {
                             ModernFileRow(file)
@@ -497,7 +472,6 @@ fun ClusterDetailView(cluster: Cluster, onRefresh: () -> Unit, onBack: () -> Uni
             }
         }
 
-        // RIGHT SIDE: INSPECTOR
         AnimatedVisibility(
             visible = selectedFileForSidebar != null,
             enter = slideInHorizontally(initialOffsetX = { it }),
@@ -516,8 +490,6 @@ fun ClusterDetailView(cluster: Cluster, onRefresh: () -> Unit, onBack: () -> Uni
     }
 }
 
-// --- SUPPORTING UI COMPONENTS ---
-
 @Composable
 fun DistributionPieChart(distribution: Map<String, Float>, totalSize: String) {
     val colors = mapOf(
@@ -531,7 +503,6 @@ fun DistributionPieChart(distribution: Map<String, Float>, totalSize: String) {
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // We use a Box to layer the Text on top of the Canvas
         Box(modifier = Modifier.size(180.dp), contentAlignment = Alignment.Center) {
             Canvas(modifier = Modifier.fillMaxSize()) {
                 var startAngle = -90f
@@ -550,7 +521,6 @@ fun DistributionPieChart(distribution: Map<String, Float>, totalSize: String) {
                 }
             }
 
-            // --- THE CENTER SIZE INDICATOR ---
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = totalSize.split(" ")[0], // The Number
@@ -569,7 +539,6 @@ fun DistributionPieChart(distribution: Map<String, Float>, totalSize: String) {
 
         Spacer(Modifier.height(20.dp))
 
-        // The Legend
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             distribution.keys.forEach { label ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -635,11 +604,8 @@ fun ModernFileRow(file: FileMetadata) {
         )
     }
 }
-
-// --- 5. PERSISTENCE & UTILS ---
 fun saveClusters(clusters: List<Cluster>) {
     val file = File("clusters.txt")
-    // Added hasDuplicates to the string
     val data = clusters.joinToString("\n") {
         "${it.id}|${it.name}|${it.path}|${it.fileCount}|${it.lastModified}|${it.hasDuplicates}"
     }
@@ -651,19 +617,17 @@ fun loadClusters(): List<Cluster> {
     if (!file.exists()) return emptyList()
     return file.readLines().mapNotNull { line ->
         val parts = line.split("|")
-        // Now checking for 6 parts instead of 5
         if (parts.size == 6) {
             Cluster(
                 parts[0].toInt(),
                 parts[1],
-                parts[2],
                 parts[3].toInt(),
+                parts[2],
                 parts[4],
                 parts[5].toBoolean() // The 6th part
             )
         } else if (parts.size == 5) {
-            // Support for old save files
-            Cluster(parts[0].toInt(), parts[1], parts[2], parts[3].toInt(), parts[4], false)
+            Cluster(parts[0].toInt(), parts[1], parts[3].toInt(), parts[2], parts[4], false)
         } else null
     }
 }
@@ -694,21 +658,17 @@ fun getFileDistribution(path: String): Map<String, Float> {
     val counts = mutableMapOf<String, Int>()
 
     files.forEach { file ->
-        // Convert to uppercase so "jpg" and "JPG" are treated the same
         val ext = file.extension.uppercase()
 
-        // Find which list contains this extension
         val cat = categories.entries.find { it.value.contains(ext) }?.key ?: "Other"
 
         counts[cat] = counts.getOrDefault(cat, 0) + 1
     }
 
-    // Convert to percentages for the UI bar
     return counts.mapValues { it.value.toFloat() / files.size }
 }
 
 fun getHeatmapColor(fileCount: Int): Color {
-    // LOWER THIS: Now, 10 files = Full Red, 5 files = Purple/Pink
     val threshold = 10f
     val intensity = (fileCount.toFloat() / threshold).coerceIn(0f, 1f)
 
@@ -723,63 +683,9 @@ fun hasDuplicates(path: String): Boolean {
     val folder = File(path)
     val files = folder.listFiles()?.filter { it.isFile } ?: return false
 
-    // We group files by a unique key: "name_size"
-    // If any group has more than 1 file, we have a duplicate
     val seenFiles = files.groupBy { "${it.name}_${it.length()}" }
     return seenFiles.any { it.value.size > 1 }
 }
-
-/*@Composable
-fun DistributionPieChart(distribution: Map<String, Float>) {
-    val colors = mapOf(
-        "Images" to VelvetTheme.SunsetCoral,
-        "Docs" to VelvetTheme.SlateBlue,
-        "Code" to VelvetTheme.CrimsonRed,
-        "Other" to Color.Gray
-    )
-
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Box(modifier = Modifier.size(160.dp), contentAlignment = Alignment.Center) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                var startAngle = -90f // Start from the top
-                distribution.forEach { (label, weight) ->
-                    val sweepAngle = weight * 360f
-                    if (sweepAngle > 0) {
-                        drawArc(
-                            color = colors[label] ?: Color.Gray,
-                            startAngle = startAngle,
-                            sweepAngle = sweepAngle,
-                            useCenter = true
-                        )
-                        startAngle += sweepAngle
-                    }
-                }
-
-                // Optional: Draw a "Hole" in the middle to make it a Donut Chart
-                drawCircle(
-                    color = VelvetTheme.MidnightNavy,
-                    radius = size.minDimension / 4f
-                )
-            }
-        }
-
-        Spacer(Modifier.height(16.dp))
-
-        // Simple Legend
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            distribution.keys.forEach { label ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(10.dp).background(colors[label] ?: Color.Gray, RoundedCornerShape(2.dp)))
-                    Spacer(Modifier.width(4.dp))
-                    Text(label, color = VelvetTheme.SoftSand, style = MaterialTheme.typography.caption)
-                }
-            }
-        }
-    }
-}*/
 
 fun removeDuplicates(path: String): Int {
     val folder = File(path)
@@ -828,7 +734,6 @@ fun FileInspectorSidebar(
             }
             .padding(24.dp)
     ) {
-        // --- HEADER ---
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("FILE CONFIG", style = MaterialTheme.typography.overline, color = VelvetTheme.CrimsonRed)
             IconButton(onClick = onClose, modifier = Modifier.size(28.dp)) {
@@ -836,10 +741,8 @@ fun FileInspectorSidebar(
             }
         }
 
-        // Brought the chart up (Reduced from 80.dp to 40.dp)
         Spacer(Modifier.height(40.dp))
 
-        // --- STATISTICS ---
         Text("WEIGHT IN CLUSTER", color = VelvetTheme.SoftSand, style = MaterialTheme.typography.overline)
         Spacer(Modifier.height(16.dp))
         Box(modifier = Modifier.size(140.dp).align(Alignment.CenterHorizontally), contentAlignment = Alignment.Center) {
@@ -852,15 +755,12 @@ fun FileInspectorSidebar(
 
         Spacer(Modifier.height(40.dp))
 
-        // --- PARAMETERS ---
-        // Using high-readability labels
         InspectorField("FILENAME", file.name)
         InspectorField("TYPE / FORMAT", file.extension)
         InspectorField("FILE SIZE", file.sizeString)
 
         Spacer(Modifier.weight(1f))
 
-        // --- PRIMARY ACTION ---
         Button(
             onClick = { try { java.awt.Desktop.getDesktop().browse(fileObj.parentFile.toURI()) } catch(e: Exception) {} },
             modifier = Modifier.fillMaxWidth().height(50.dp),
@@ -875,7 +775,6 @@ fun FileInspectorSidebar(
 
         Spacer(Modifier.height(12.dp))
 
-        // --- DESTRUCTIVE ACTION ---
         TextButton(
             onClick = {
                 if (fileObj.exists()) {
@@ -917,7 +816,6 @@ fun DetailHeader(
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // Back Button
             IconButton(
                 onClick = onBack,
                 modifier = Modifier.background(VelvetTheme.DeepMaroon, RoundedCornerShape(8.dp))
@@ -927,7 +825,6 @@ fun DetailHeader(
 
             Spacer(Modifier.width(16.dp))
 
-            // Folder Info
             Column {
                 Text(
                     text = name,
@@ -943,7 +840,6 @@ fun DetailHeader(
             }
         }
 
-        // Refresh Button
         IconButton(
             onClick = onRefresh,
             modifier = Modifier.background(VelvetTheme.SlateBlue.copy(alpha = 0.2f), RoundedCornerShape(8.dp))

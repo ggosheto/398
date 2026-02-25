@@ -19,8 +19,8 @@ object DatabaseManager {
         if (storageFile.exists()) {
             storageFile.readLines().forEach { line ->
                 val parts = line.split("|")
-                if (parts.size == 4) {
-                    registeredUsers.add(User(parts[0].toInt(), parts[1], parts[2], parts[3]))
+                if (parts.size == 5) {
+                    registeredUsers.add(User(parts[0].toInt(), parts[1], parts[2], parts[3], parts[4]))
                 }
             }
         }
@@ -28,7 +28,7 @@ object DatabaseManager {
 
     private fun saveUserToDisk(user: User) {
         // Append the new user to the file so they survive a restart
-        val data = "${user.id}|${user.email}|${user.username}|${user.passwordHash}\n"
+        val data = "${user.id}|${user.email}|${user.username}|${user.passwordHash}|${user.name}\n"
         storageFile.appendText(data)
     }
 
@@ -246,14 +246,14 @@ object DatabaseManager {
     fun getUserById(userId: Int): User? {
         return try {
             // Mocking a successful database return for now so your code runs
-            User(id = userId, email = "user@example.com", username = "OlympiadCandidate", passwordHash = "mock_hash")
+            User(id = userId, email = "user@example.com", username = "OlympiadCandidate", passwordHash = "mock_hash", name = "Olympiad Candidate")
         } catch (e: Exception) {
             null
         }
     }
 
     fun getUserByEmail(email: String): User? {
-        return User(1, email, "OlympiadUser", "mock_hash")
+        return User(1, email, "OlympiadUser", "mock_hash", "Olympiad User")
     }
 
     fun getClusterSummaries(): List<ClusterSummary> {
@@ -285,7 +285,8 @@ object DatabaseManager {
             id = registeredUsers.size + 1,
             email = email,
             username = email.substringBefore("@"),
-            passwordHash = pass
+            passwordHash = pass,
+            name = email.substringBefore("@")
         )
         registeredUsers.add(newUser)
         saveUserToDisk(newUser)
