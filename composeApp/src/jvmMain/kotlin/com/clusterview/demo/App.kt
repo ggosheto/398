@@ -83,10 +83,19 @@ fun App() {
 
                 "map" -> {
                     VisualizationMapView(
-                        clusters = clusters.map { Cluster(it.id, it.name, it.fileCount, "", "") },
+                        // IMPORTANT: Use the 'clusters' variable that you updated during import
+                        clusters = clusters.map { summary ->
+                            Cluster(
+                                id = summary.id,
+                                name = summary.name,
+                                fileCount = summary.fileCount,
+                                path = "",
+                                lastModified = ""
+                            )
+                        },
                         onBack = { currentScreen = "home" },
                         onClusterClick = { cluster ->
-                            selectedCluster = cluster
+                            selectedClusterName = cluster.name
                             currentScreen = "list"
                         }
                     )

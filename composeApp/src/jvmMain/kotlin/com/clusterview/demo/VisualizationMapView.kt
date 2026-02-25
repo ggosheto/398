@@ -2,6 +2,8 @@ package com.clusterview.demo
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -25,26 +27,29 @@ import kotlin.math.roundToInt
 
 @Composable
 fun VisualizationMapView(
-    clusters: List<Cluster>,
+    clusters: List<Cluster>, // This list must come from your DB
     onBack: () -> Unit,
     onClusterClick: (Cluster) -> Unit
 ) {
-    // State for the entire view (Zoom/Pan)
     var scale by remember { mutableStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
 
-    // Map cluster IDs to positions so we can drag them
-    val nodePositions = remember {
+    // Map to track positions of REAL cluster IDs
+    val nodePositions = remember(clusters) {
         mutableStateMapOf<Int, Offset>().apply {
             clusters.forEachIndexed { index, cluster ->
-                // Initial spiral-like placement so they aren't all in a line
-                this[cluster.id] = Offset(400f + (index * 150f), 300f + (if(index % 2 == 0) 100f else -100f))
+                // Spread nodes in a circle based on how many clusters exist
+                val angle = index * (2 * Math.PI / clusters.size)
+                val radius = 250f
+                this[cluster.id] = Offset(
+                    x = 500f + (radius * Math.cos(angle)).toFloat(),
+                    y = 350f + (radius * Math.sin(angle)).toFloat()
+                )
             }
         }
     }
 
     Box(modifier = Modifier.fillMaxSize().background(VelvetTheme.DeepOcean)) {
-        // --- 1. THE TRANSFORMABLE LAYER (Canvas + Nodes) ---
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -54,91 +59,87 @@ fun VisualizationMapView(
                         offset += pan
                     }
                 }
-                .graphicsLayer(
-                    scaleX = scale, scaleY = scale,
-                    translationX = offset.x, translationY = offset.y
-                )
+                .graphicsLayer(scaleX = scale, scaleY = scale, translationX = offset.x, translationY = offset.y)
         ) {
-            // --- DRAW LINES (EDGES) ---
+            // --- DYNAMIC LINES ---
             Canvas(modifier = Modifier.fillMaxSize()) {
-                val centers = nodePositions.values.toList()
-                for (i in centers.indices) {
-                    for (j in i + 1 until centers.size) {
-                        // Draw a subtle glowing line between all nodes
+                val clusterIds = clusters.map { it.id }
+                for (i in clusterIds.indices) {
+                    for (j in i + 1 until clusterIds.size) {
+                        val p1 = nodePositions[clusterIds[i]] ?: Offset.Zero
+                        val p2 = nodePositions[clusterIds[j]] ?: Offset.Zero
                         drawLine(
-                            brush = Brush.linearGradient(
-                                colors = listOf(VelvetTheme.SunsetCoral.copy(alpha = 0.3f), VelvetTheme.SlateBlue.copy(alpha = 0.3f))
-                            ),
-                            start = centers[i] + Offset(50f, 50f), // Adjust for node center
-                            end = centers[j] + Offset(50f, 50f),
-                            strokeWidth = 2f,
-                            cap = StrokeCap.Round
+                            color = VelvetTheme.SunsetCoral.copy(alpha = 0.2f),
+                            start = p1 + Offset(60.dp.toPx(), 60.dp.toPx()),
+                            end = p2 + Offset(60.dp.toPx(), 60.dp.toPx()),
+                            strokeWidth = 2f
                         )
                     }
                 }
             }
 
-            // --- DRAW NODES ---
+            // --- DYNAMIC NODES (Uses cluster.name directly) ---
             clusters.forEach { cluster ->
                 val pos = nodePositions[cluster.id] ?: Offset.Zero
-
-                Box(
-                    modifier = Modifier
-                        .offset { IntOffset(pos.x.roundToInt(), pos.y.roundToInt()) }
-                        .size(120.dp)
-                        .graphicsLayer {
-                            shadowElevation = 20f
-                            shape = CircleShape
-                            clip = true
-                        }
-                        .background(
-                            Brush.radialGradient(
-                                colors = listOf(VelvetTheme.SlateBlue, VelvetTheme.DeepOcean)
-                            )
-                        )
-                        .pointerInput(cluster.id) {
-                            detectDragGestures { change, dragAmount ->
-                                change.consume()
-                                nodePositions[cluster.id] = (nodePositions[cluster.id] ?: Offset.Zero) + dragAmount
-                            }
-                        }
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = cluster.name,
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
-                        )
-                        Text(
-                            text = "${cluster.fileCount} nodes",
-                            color = VelvetTheme.SunsetCoral,
-                            fontSize = 10.sp
-                        )
-                    }
-                }
+                NodeElement(
+                    cluster = cluster,
+                    position = pos,
+                    onPositionChange = { newPos -> nodePositions[cluster.id] = newPos },
+                    onClick = { onClusterClick(cluster) }
+                )
             }
         }
 
-        // --- 2. UI OVERLAY ---
-        TopAppBar(
-            backgroundColor = Color.Transparent,
-            elevation = 0.dp,
-            modifier = Modifier.padding(16.dp)
+        // Back Button
+        Button(
+            onClick = onBack,
+            modifier = Modifier.padding(16.dp),
+            colors = ButtonDefaults.buttonColors(backgroundColor = VelvetTheme.SlateBlue)
         ) {
-            Button(
-                onClick = onBack,
-                colors = ButtonDefaults.buttonColors(backgroundColor = VelvetTheme.CrimsonRed),
-                shape = CircleShape
-            ) {
-                Icon(Icons.Default.ArrowBack, contentDescription = null, tint = Color.White)
-                Spacer(Modifier.width(8.dp))
-                Text("EXIT TO CORE", color = Color.White, fontWeight = FontWeight.Bold)
+            Text("← BACK TO DASHBOARD", color = Color.White)
+        }
+    }
+}
+
+@Composable
+fun NodeElement(
+    cluster: Cluster,
+    position: Offset,
+    onPositionChange: (Offset) -> Unit,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .offset { IntOffset(position.x.roundToInt(), position.y.roundToInt()) }
+            .size(120.dp)
+            .pointerInput(cluster.id) {
+                detectDragGestures { change, dragAmount ->
+                    change.consume()
+                    onPositionChange(position + dragAmount)
+                }
             }
+            .clickable { onClick() }
+            .background(
+                brush = Brush.radialGradient(
+                    colors = listOf(VelvetTheme.SlateBlue, VelvetTheme.MidnightNavy)
+                ),
+                shape = CircleShape
+            )
+            .border(2.dp, VelvetTheme.SunsetCoral.copy(alpha = 0.5f), CircleShape),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = cluster.name.uppercase(),
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp
+            )
+            Text(
+                text = "${cluster.fileCount} FILES",
+                color = VelvetTheme.SunsetCoral,
+                fontSize = 10.sp
+            )
         }
     }
 }
