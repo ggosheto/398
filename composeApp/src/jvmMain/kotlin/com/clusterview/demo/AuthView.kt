@@ -13,24 +13,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-
 import androidx.compose.foundation.BorderStroke
-
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 
-
+// --- THEME COLORS ---
 val MidnightNavy = Color(0xFF181A2F)
 val DeepOcean = Color(0xFF242E49)
 val SlateBlue = Color(0xFF37415C)
 val SunsetCoral = Color(0xFFFDA481)
 val CrimsonRed = Color(0xFFB4182D)
-val DeepMaroon = Color(0xFF54162B)
-val SoftSand = Color(0xFFDFB6B2)
+// val DeepMaroon = Color(0xFF54162B)
+// val SoftSand = Color(0xFFDFB6B2)
 
 @Composable
 fun LoginView(
@@ -49,11 +46,7 @@ fun LoginView(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(Color(0xFF242E49), Color(0xFF37415C)) // Deep gradient
-                )
-            )
+            .background(brush = Brush.verticalGradient(colors = listOf(DeepOcean, SlateBlue)))
             .drawBehind {
                 val gridSize = 40.dp.toPx()
                 for (x in 0..size.width.toInt() step gridSize.toInt()) {
@@ -66,96 +59,49 @@ fun LoginView(
         contentAlignment = Alignment.Center
     ) {
         Card(
-            modifier = Modifier
-                .width(420.dp)
-                .padding(16.dp),
+            modifier = Modifier.width(420.dp).padding(16.dp),
             shape = RoundedCornerShape(24.dp),
-            backgroundColor = Color(0xFF181A2F),
+            backgroundColor = MidnightNavy,
             elevation = 20.dp,
-            border = BorderStroke(1.dp, Color(0xFFFDA481).copy(alpha = 0.3f))
+            border = BorderStroke(1.dp, Tan.copy(alpha = 0.3f))
         ) {
             Column(
                 modifier = Modifier.padding(40.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(
-                    imageVector = Icons.Default.Lock,
-                    contentDescription = null,
-                    tint = Tan,
-                    modifier = Modifier.size(48.dp)
-                )
+                Icon(Icons.Default.Lock, null, tint = Tan, modifier = Modifier.size(48.dp))
                 Spacer(Modifier.height(16.dp))
-                Text(
-                    "CORE ACCESS",
-                    style = MaterialTheme.typography.h4,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Tan,
-                    letterSpacing = 4.sp
-                )
-                Text(
-                    "IDENTIFICATION REQUIRED",
-                    style = MaterialTheme.typography.caption,
-                    color = Color.Gray,
-                    letterSpacing = 1.sp
-                )
-
+                Text("CORE ACCESS", style = MaterialTheme.typography.h4, fontWeight = FontWeight.ExtraBold, color = Tan, letterSpacing = 4.sp)
+                Text("IDENTIFICATION REQUIRED", style = MaterialTheme.typography.caption, color = Color.Gray, letterSpacing = 1.sp)
                 Spacer(Modifier.height(40.dp))
 
-                FuturisticTextField(
-                    value = email,
-                    onValueChange = { email = it },
-                    label = "OPERATOR ID (EMAIL)"
-                )
+                FuturisticTextField(value = email, onValueChange = { email = it }, label = "OPERATOR ID (EMAIL)")
                 Spacer(Modifier.height(16.dp))
-                FuturisticTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = "ACCESS KEY",
-                    isPassword = true
-                )
+                FuturisticTextField(value = password, onValueChange = { password = it }, label = "ACCESS KEY", isPassword = true)
 
                 if (errorMessage != null) {
-                    Text(
-                        errorMessage!!,
-                        color = Color(0xFF54162B),
-                        modifier = Modifier.padding(top = 12.dp),
-                        style = MaterialTheme.typography.caption
-                    )
+                    Text(errorMessage!!, color = CrimsonRed, modifier = Modifier.padding(top = 12.dp), style = MaterialTheme.typography.caption)
                 }
 
                 Spacer(Modifier.height(32.dp))
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(
                         checked = stayLoggedIn,
                         onCheckedChange = { stayLoggedIn = it },
-                        colors = CheckboxDefaults.colors(
-                            checkedColor = Tan,
-                            uncheckedColor = Tan.copy(alpha = 0.5f),
-                            checkmarkColor = OxfordBlue
-                        )
+                        colors = CheckboxDefaults.colors(checkedColor = Tan, uncheckedColor = Tan.copy(alpha = 0.5f), checkmarkColor = OxfordBlue)
                     )
-                    Text(
-                        text = "STAY LOGGED IN",
-                        color = Tan.copy(alpha = 0.8f),
-                        style = MaterialTheme.typography.caption,
-                        modifier = Modifier.padding(start = 8.dp),
-                        letterSpacing = 1.sp
-                    )
+                    Text("STAY LOGGED IN", color = Tan.copy(alpha = 0.8f), style = MaterialTheme.typography.caption, modifier = Modifier.padding(start = 8.dp))
                 }
 
                 Button(
                     onClick = {
-
                         isLoading = true
-                        val authenticatedUser = AuthManager.login(email, password, stayLoggedIn)
+                        // FIX: Ensure DatabaseManager.verifyLogin is visible and accessible
+                        val authenticatedUser = DatabaseManager.verifyLogin(email, password)
 
                         if (authenticatedUser != null) {
+                            if (stayLoggedIn) { AuthManager.saveUser(authenticatedUser.id) }
                             onAuthSuccess(authenticatedUser)
                         } else {
                             errorMessage = "ACCESS DENIED: INVALID CREDENTIALS"
@@ -172,9 +118,7 @@ fun LoginView(
                         Text("INITIALIZE ACCESS", fontWeight = FontWeight.Bold, color = OxfordBlue)
                     }
                 }
-
                 Spacer(Modifier.height(24.dp))
-
                 TextButton(onClick = onNavigateToSignUp) {
                     Text("NEW OPERATOR? REGISTER PROFILE", color = Tan.copy(alpha = 0.7f), fontSize = 12.sp)
                 }
@@ -184,15 +128,9 @@ fun LoginView(
 }
 
 @Composable
-fun FuturisticTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    label: String,
-    isPassword: Boolean = false
-) {
+fun FuturisticTextField(value: String, onValueChange: (String) -> Unit, label: String, isPassword: Boolean = false) {
     val Tan = Color(0xFFFDA481)
     var passwordVisible by remember { mutableStateOf(false) }
-
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
@@ -200,24 +138,12 @@ fun FuturisticTextField(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         singleLine = true,
-        colors = TextFieldDefaults.outlinedTextFieldColors(
-            focusedBorderColor = Tan,
-            unfocusedBorderColor = Tan.copy(alpha = 0.2f),
-            textColor = Color.White,
-            cursorColor = Tan
-        ),
-        visualTransformation = if (isPassword && !passwordVisible)
-            androidx.compose.ui.text.input.PasswordVisualTransformation()
-        else androidx.compose.ui.text.input.VisualTransformation.None,
-
+        colors = TextFieldDefaults.outlinedTextFieldColors(focusedBorderColor = Tan, unfocusedBorderColor = Tan.copy(alpha = 0.2f), textColor = Color.White),
+        visualTransformation = if (isPassword && !passwordVisible) androidx.compose.ui.text.input.PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
         trailingIcon = {
             if (isPassword) {
-                val image = if (passwordVisible)
-                    Icons.Filled.Visibility
-                else Icons.Filled.VisibilityOff
-
                 IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                    Icon(imageVector = image, contentDescription = null, tint = Tan.copy(alpha = 0.6f))
+                    Icon(if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff, null, tint = Tan.copy(alpha = 0.6f))
                 }
             }
         }
@@ -225,19 +151,27 @@ fun FuturisticTextField(
 }
 
 @Composable
-fun AuthView(onLoginSuccess: () -> Unit) {
+fun AuthView(onLoginSuccess: (User) -> Unit) {
     var showSignUp by remember { mutableStateOf(false) }
 
     if (showSignUp) {
         SignUpView(
-            onSignUpSuccess = { onLoginSuccess() },
+            onSignUpSuccess = { user ->
+                if (user != null) {
+                    // User signed up with STAY LOGGED IN - log them in
+                    showSignUp = false
+                    onLoginSuccess(user)
+                } else {
+                    // User signed up without STAY LOGGED IN - go back to login
+                    showSignUp = false
+                }
+            },
             onNavigateToLogin = { showSignUp = false }
         )
     } else {
         LoginView(
-            onAuthSuccess = { onLoginSuccess() },
+            onAuthSuccess = { user -> onLoginSuccess(user) },
             onNavigateToSignUp = { showSignUp = true }
         )
     }
 }
-

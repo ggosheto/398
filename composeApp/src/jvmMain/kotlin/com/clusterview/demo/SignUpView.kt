@@ -4,8 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -15,11 +13,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-fun SignUpView(onSignUpSuccess: () -> Unit, onNavigateToLogin: () -> Unit) {
+fun SignUpView(onSignUpSuccess: (User?) -> Unit, onNavigateToLogin: () -> Unit) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var validationError by remember { mutableStateOf<String?>(null) }
+    var stayLoggedIn by remember { mutableStateOf(false) }
 
     val OxfordBlue = Color(0xFF181A2F)
     val Tan1 = Color(0xFFFDA481)
@@ -77,6 +76,17 @@ fun SignUpView(onSignUpSuccess: () -> Unit, onNavigateToLogin: () -> Unit) {
 
                 Spacer(Modifier.height(32.dp))
 
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = stayLoggedIn,
+                        onCheckedChange = { stayLoggedIn = it },
+                        colors = CheckboxDefaults.colors(checkedColor = Tan1, uncheckedColor = Tan1.copy(alpha = 0.5f), checkmarkColor = OxfordBlue)
+                    )
+                    Text("STAY LOGGED IN", color = Tan1.copy(alpha = 0.8f), style = MaterialTheme.typography.caption, modifier = Modifier.padding(start = 8.dp))
+                }
+
+                Spacer(Modifier.height(24.dp))
+
                 Button(
                     onClick = {
                         val (isValid, errorMsg) = isPasswordValid(password)
@@ -88,7 +98,23 @@ fun SignUpView(onSignUpSuccess: () -> Unit, onNavigateToLogin: () -> Unit) {
                             else -> {
                                 val dbError = DatabaseManager.registerUser(email, password)
                                 if (dbError == null) {
-                                    onSignUpSuccess()
+                                    // After successful registration, verify login and get the user
+                                    val registeredUser = DatabaseManager.verifyLogin(email, password)
+
+                                    if (registeredUser != null) {
+                                        // If STAY LOGGED IN is checked, save the user
+                                        if (stayLoggedIn) {
+                                            AuthManager.saveUser(registeredUser.id)
+                                            // Pass the user so App knows to go to home screen
+                                            onSignUpSuccess(registeredUser)
+                                        } else {
+                                            // No auto-login, just close the dialog
+                                            onSignUpSuccess(null)
+                                        }
+                                    } else {
+                                        // This shouldn't happen, but handle it
+                                        onSignUpSuccess(null)
+                                    }
                                 } else {
                                     validationError = dbError
                                 }
@@ -110,7 +136,6 @@ fun SignUpView(onSignUpSuccess: () -> Unit, onNavigateToLogin: () -> Unit) {
     }
 }
 
-private fun DatabaseManager.registerUser(email: String, password: String) {}
 
 fun isPasswordValid(password: String): Pair<Boolean, String?> {
     return when {

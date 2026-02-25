@@ -8,30 +8,33 @@ import androidx.compose.ui.graphics.Color
 
 @Composable
 fun App() {
-    var currentScreen by remember {
-        mutableStateOf(if (AuthManager.isUserRemembered()) "home" else "login")
-    }
+    var currentScreen by remember { mutableStateOf("splash") }
+    var currentUser by remember { mutableStateOf<User?>(null) }
     var selectedCluster by remember { mutableStateOf<Cluster?>(null) }
-    var currentUser by remember {
+    /*var currentUser by remember {
         mutableStateOf<User?>(
             if (AuthManager.isUserRemembered()) {
                 DatabaseManager.getUserById(AuthManager.getSavedUserId())
             } else null
         )
-    }
+    }*/
     var clusters by remember { mutableStateOf(emptyList<ClusterSummary>()) }
     var selectedClusterName by remember { mutableStateOf("") }
     var loadedFiles by remember { mutableStateOf(emptyList<FileEntry>()) }
 
     LaunchedEffect(Unit) {
         if (AuthManager.isUserRemembered()) {
-            val userId = AuthManager.getSavedUserId()
-            val user = DatabaseManager.getUserById(userId) as? User
+            val savedId = AuthManager.getSavedUserId()
+            val user = DatabaseManager.getUserById(savedId)
+
             if (user != null) {
                 currentUser = user
-                clusters = DatabaseManager.getClusterSummaries()
-                currentScreen = "home"
+                currentScreen = "home" // MUST match your when block
+            } else {
+                currentScreen = "login"
             }
+        } else {
+            currentScreen = "login"
         }
     }
 
@@ -46,7 +49,16 @@ fun App() {
                     onNavigateToSignUp = { currentScreen = "signup" }
                 )
                 "signup" -> SignUpView(
-                    onSignUpSuccess = { currentScreen = "login" },
+                    onSignUpSuccess = { user ->
+                        if (user != null) {
+                            // User signed up with STAY LOGGED IN
+                            currentUser = user
+                            currentScreen = "home"
+                        } else {
+                            // User signed up without STAY LOGGED IN - back to login
+                            currentScreen = "login"
+                        }
+                    },
                     onNavigateToLogin = { currentScreen = "login" }
                 )
 
@@ -63,6 +75,7 @@ fun App() {
                         },
                         onLogoutSuccess = {
                             currentUser = null
+                            AuthManager.clear()
                             currentScreen = "login"
                         }
                     )
