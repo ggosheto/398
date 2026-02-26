@@ -2,9 +2,12 @@ package com.clusterview.demo
 
 // --- CRITICAL IMPORTS: These fix 'Modifier', 'dp', 'Text', 'Button', etc. ---
 import androidx.compose.runtime.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.*
 import androidx.compose.material3.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import java.io.File
 
@@ -44,63 +47,82 @@ fun NavigationController() {
 
     var selectedCluster by remember { mutableStateOf<Cluster?>(null) }
 
-    when (currentScreen) {
-        Screen.LOGIN -> {
-            AuthView(onLoginSuccess = { user ->
-                currentUser = user
-                currentScreen = Screen.DASHBOARD
-            })
-        }
-
-        Screen.DASHBOARD -> {
-            // Reload clusters when returning to dashboard
-            LaunchedEffect(refreshKey) {
-                allClusters.clear()
-                allClusters.addAll(loadClustersFromFile())
+    Box(modifier = Modifier.fillMaxSize()) {
+        when (currentScreen) {
+            Screen.LOGIN -> {
+                AuthView(onLoginSuccess = { user ->
+                    currentUser = user
+                    currentScreen = Screen.DASHBOARD
+                })
             }
 
-            HomeView(
-                user = currentUser,
-                onClusterClick = { cluster ->
-                    selectedCluster = cluster
-                    currentScreen = Screen.DETAIL
-                },
-                onOpenMap = {
-                    currentScreen = Screen.MAP
-                },
-                onLogoutSuccess = {
-                    currentUser = null
-                    AuthManager.clear()
-                    currentScreen = Screen.LOGIN
+            Screen.DASHBOARD -> {
+                // Reload clusters when returning to dashboard
+                LaunchedEffect(refreshKey) {
+                    allClusters.clear()
+                    allClusters.addAll(loadClustersFromFile())
                 }
-            )
-        }
 
-        Screen.MAP -> {
-            VisualizationMapView(
-                clusters = allClusters,
-                onBack = {
-                    refreshKey++ // Trigger reload
-                    currentScreen = Screen.DASHBOARD
-                },
-                onClusterClick = { cluster ->
-                    selectedCluster = cluster
-                    currentScreen = Screen.DETAIL
-                }
-            )
-        }
+                HomeView(
+                    user = currentUser,
+                    onClusterClick = { cluster ->
+                        selectedCluster = cluster
+                        currentScreen = Screen.DETAIL
+                    },
+                    onOpenMap = {
+                        currentScreen = Screen.MAP
+                    },
+                    onLogoutSuccess = {
+                        currentUser = null
+                        AuthManager.clear()
+                        currentScreen = Screen.LOGIN
+                    }
+                )
+            }
 
-        Screen.DETAIL -> {
-            selectedCluster?.let { cluster ->
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Details for ${cluster.name}", style = MaterialTheme.typography.headlineMedium)
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text("Path: ${cluster.path}")
-                    Button(onClick = {
+            Screen.MAP -> {
+                VisualizationMapView(
+                    clusters = allClusters,
+                    onBack = {
                         refreshKey++ // Trigger reload
                         currentScreen = Screen.DASHBOARD
-                    }) {
-                        Text("Back")
+                    },
+                    onClusterClick = { cluster ->
+                        selectedCluster = cluster
+                        currentScreen = Screen.DETAIL
+                    }
+                )
+            }
+
+            Screen.DETAIL -> {
+                selectedCluster?.let { cluster ->
+                    Box(modifier = Modifier.fillMaxSize().background(VelvetTheme.CoreGradient)) {
+                        ClusterDetailView(
+                            cluster = cluster,
+                            onRefresh = {
+                                val folder = File(cluster.path)
+                                if (folder.exists()) {
+                                    val newCount = folder.listFiles()?.filter { it.isFile }?.size ?: 0
+                                    val newTime = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy (HH:mm)"))
+                                    val duplicatesFound = hasDuplicates(cluster.path)
+                                    val index = allClusters.indexOfFirst { it.id == cluster.id }
+                                    if (index != -1) {
+                                        val updated = cluster.copy(
+                                            fileCount = newCount,
+                                            lastModified = newTime,
+                                            hasDuplicates = duplicatesFound
+                                        )
+                                        allClusters[index] = updated
+                                        selectedCluster = updated
+                                        saveClusters(allClusters)
+                                    }
+                                }
+                            },
+                            onBack = {
+                                refreshKey++ // Trigger reload
+                                currentScreen = Screen.DASHBOARD
+                            }
+                        )
                     }
                 }
             }

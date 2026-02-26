@@ -31,6 +31,7 @@ import javax.swing.UIManager
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
 
 /*data class Cluster(
     val id: Int,
@@ -65,167 +66,115 @@ object VelvetTheme {
 }
 
 @Composable
-fun HomeView(user: User?, onClusterClick: (Cluster) -> Unit, onOpenMap: () -> Unit, onLogoutSuccess: () -> Unit) {
+fun HomeView(
+    user: User?,
+    onClusterClick: (Cluster) -> Unit,
+    onOpenMap: () -> Unit,
+    onLogoutSuccess: () -> Unit
+) {
     val clusters = remember { mutableStateListOf<Cluster>().apply { addAll(loadClusters()) } }
-    var selectedCluster by remember { mutableStateOf<Cluster?>(null) }
-    var clusterToDelete by remember { mutableStateOf<Cluster?>(null) }
-
-
     var searchTerm by remember { mutableStateOf("") }
-    var currentSort by remember { mutableStateOf(SortOption.NAME) }
     var sortMenuExpanded by remember { mutableStateOf(false) }
+    var currentSort by remember { mutableStateOf(SortOption.NAME) }
+    var clusterToDelete by remember { mutableStateOf<Cluster?>(null) }
+    var selectedCluster by remember { mutableStateOf<Cluster?>(null) }
 
-    val filteredClusters = clusters
-        .filter { it.name.contains(searchTerm, ignoreCase = true) }
-        .sortedWith(compareBy {
-            when (currentSort) {
-                SortOption.NAME -> it.name.lowercase()
-                SortOption.DATE -> it.lastModified
-                SortOption.OBJECT_COUNT -> -it.fileCount
+    // Logic to filter and sort your real data (Testova2, TestovaPapka, etc.)
+    val filteredClusters = remember(searchTerm, clusters, currentSort) {
+        clusters.filter { it.name.contains(searchTerm, ignoreCase = true) }
+            .sortedWith(when (currentSort) {
+                SortOption.NAME -> compareBy { it.name }
+                SortOption.DATE -> compareByDescending { it.lastModified }
+                SortOption.OBJECT_COUNT -> compareByDescending { it.fileCount }
+            })
+    }
+
+    // Use fillMaxSize() on the root Column to provide a boundary for weight
+    Column(modifier = Modifier.fillMaxSize().background(VelvetTheme.MidnightNavy)) {
+
+        // Header Section (Stateless)
+        DashboardHeader(onOpenMap = onOpenMap, onLogout = onLogoutSuccess)
+
+        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
+
+            // Search and Sort Bar
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextField(
+                    value = searchTerm,
+                    onValueChange = { searchTerm = it },
+                    modifier = Modifier.weight(1f).border(1.dp, VelvetTheme.SlateBlue, RoundedCornerShape(12.dp)),
+                    placeholder = { Text("Search clusters...", color = VelvetTheme.SlateBlue) },
+                    colors = TextFieldDefaults.textFieldColors(
+                        backgroundColor = VelvetTheme.DeepOcean.copy(alpha = 0.5f),
+                        textColor = Color.White,
+                        cursorColor = VelvetTheme.SunsetCoral,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    leadingIcon = { Icon(Icons.Default.Search, null, tint = VelvetTheme.SunsetCoral) },
+                    singleLine = true
+                )
+
+                Spacer(Modifier.width(12.dp))
+
+                Box {
+                    IconButton(
+                        onClick = { sortMenuExpanded = true },
+                        modifier = Modifier
+                            .background(VelvetTheme.DeepOcean, RoundedCornerShape(12.dp))
+                            .border(1.dp, VelvetTheme.SlateBlue, RoundedCornerShape(12.dp))
+                            .size(56.dp)
+                    ) {
+                        Icon(Icons.Default.Sort, "Sort", tint = VelvetTheme.SunsetCoral)
+                    }
+
+                    DropdownMenu(
+                        expanded = sortMenuExpanded,
+                        onDismissRequest = { sortMenuExpanded = false },
+                        modifier = Modifier.background(VelvetTheme.DeepOcean).border(1.dp, VelvetTheme.SlateBlue)
+                    ) {
+                        DropdownMenuItem(onClick = { currentSort = SortOption.NAME; sortMenuExpanded = false }) {
+                            Text("Sort by Name", color = Color.White)
+                        }
+                        DropdownMenuItem(onClick = { currentSort = SortOption.DATE; sortMenuExpanded = false }) {
+                            Text("Sort by Date", color = Color.White)
+                        }
+                        DropdownMenuItem(onClick = { currentSort = SortOption.OBJECT_COUNT; sortMenuExpanded = false }) {
+                            Text("Sort by Size", color = Color.White)
+                        }
+                    }
+                }
             }
-        })
 
-    Box(modifier = Modifier.fillMaxSize().background(VelvetTheme.CoreGradient)) {
-        if (selectedCluster != null) {
-            ClusterDetailView(
-                cluster = selectedCluster!!,
-                onBack = { selectedCluster = null },
-                onRefresh = {
-                    val current = selectedCluster!!
-                    val folder = File(current.path)
-                    if (folder.exists()) {
-                        val newCount = folder.listFiles()?.filter { it.isFile }?.size ?: 0
-                        val newTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("MMM dd, yyyy (HH:mm)"))
-                        val duplicatesFound = hasDuplicates(current.path)
-                        val index = clusters.indexOfFirst { it.id == current.id }
-                        if (index != -1) {
-                            val updated = current.copy(
-                                fileCount = newCount,
-                                lastModified = newTime,
-                                hasDuplicates = duplicatesFound
-                            )
-                        }
-                    }
+            // Main Content Area
+            if (filteredClusters.isEmpty()) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("NO MATCHING DATA NODES", color = VelvetTheme.SlateBlue)
                 }
-            )
-        } else {
-            Scaffold(
-                backgroundColor = Color.Transparent,
-                topBar = {
-                    TopAppBar(
-                        title = { Text("CORE CONTROL", color = VelvetTheme.SunsetCoral, fontWeight = FontWeight.ExtraBold) },
-                        backgroundColor = Color.Transparent,
-                        elevation = 0.dp,
-                        actions = {
-
-                            IconButton(onClick = onOpenMap) {
-                                Icon(
-                                    imageVector = Icons.Default.Share, // Or Icons.Default.Map if available
-                                    contentDescription = "Topology Map",
-                                    tint = VelvetTheme.SunsetCoral
-                                )
-                            }
-
-                            IconButton(onClick = onLogoutSuccess) {
-                                Icon(Icons.Default.Logout, "Logout", tint = VelvetTheme.CrimsonRed)
-                            }
-                        }
-                    )
-                },
-                floatingActionButton = {
-                    FloatingActionButton(
-                        onClick = {
-                            val folder = pickFolderNatively()
-                            folder?.let {
-                                if (clusters.none { c -> c.path == it.absolutePath }) {
-                                    val count = it.listFiles()?.filter { f -> f.isFile }?.size ?: 0
-                                    val time = LocalDateTime.now().format(DateTimeFormatter.ofPattern("MMM dd, yyyy"))
-                                    val newCluster = Cluster(it.name.hashCode(), it.name, count, it.absolutePath, time)
-                                    clusters.add(newCluster)
-                                    saveClusters(clusters)
-                                }
-                            }
-                        },
-                        backgroundColor = VelvetTheme.CrimsonRed,
-                        contentColor = VelvetTheme.SunsetCoral,
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = "Add")
-                    }
-                }
-            ) { padding ->
-                Column(modifier = Modifier.padding(padding).padding(horizontal = 24.dp)) {
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        TextField(
-                            value = searchTerm,
-                            onValueChange = { searchTerm = it },
-                            modifier = Modifier.weight(1f).border(1.dp, VelvetTheme.SlateBlue, RoundedCornerShape(12.dp)),
-                            placeholder = { Text("Search clusters...", color = VelvetTheme.SlateBlue) },
-                            colors = TextFieldDefaults.textFieldColors(
-                                backgroundColor = VelvetTheme.DeepOcean.copy(alpha = 0.5f),
-                                textColor = Color.White,
-                                cursorColor = VelvetTheme.SunsetCoral,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent
-                            ),
-                            shape = RoundedCornerShape(12.dp),
-                            leadingIcon = { Icon(Icons.Default.Search, null, tint = VelvetTheme.SunsetCoral) },
-                            singleLine = true
+            } else {
+                // THE FIX: Adding Modifier.weight(1f) tells the grid exactly how much space it has.
+                // This prevents the "Infinity Height" crash.
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = 240.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.weight(1f).padding(bottom = 16.dp)
+                ) {
+                    items(filteredClusters) { cluster ->
+                        ModernClusterCard(
+                            cluster = cluster,
+                            onDelete = {
+                                // Don't call .remove() here!
+                                // Call a function that updates the database and refreshes the App.kt list
+                                DatabaseManager.deleteCluster(cluster.id)
+                                // Then you'll need a way to tell App.kt to refresh the list
+                            },
+                            onClick = { onClusterClick(cluster) }
                         )
-
-                        Spacer(Modifier.width(12.dp))
-
-                        Box {
-                            IconButton(
-                                onClick = { sortMenuExpanded = true },
-                                modifier = Modifier
-                                    .background(VelvetTheme.DeepOcean, RoundedCornerShape(12.dp))
-                                    .border(1.dp, VelvetTheme.SlateBlue, RoundedCornerShape(12.dp))
-                                    .size(56.dp)
-                            ) {
-                                Icon(Icons.Default.Sort, "Sort", tint = VelvetTheme.SunsetCoral)
-                            }
-
-                            DropdownMenu(
-                                expanded = sortMenuExpanded,
-                                onDismissRequest = { sortMenuExpanded = false },
-                                modifier = Modifier.background(VelvetTheme.DeepOcean).border(1.dp, VelvetTheme.SlateBlue)
-                            ) {
-                                DropdownMenuItem(onClick = { currentSort = SortOption.NAME; sortMenuExpanded = false }) {
-                                    Text("Sort by Name", color = Color.White)
-                                }
-                                DropdownMenuItem(onClick = { currentSort = SortOption.DATE; sortMenuExpanded = false }) {
-                                    Text("Sort by Date", color = Color.White)
-                                }
-                                DropdownMenuItem(onClick = { currentSort = SortOption.OBJECT_COUNT; sortMenuExpanded = false }) {
-                                    Text("Sort by Size", color = Color.White)
-                                }
-                            }
-                        }
-                    }
-
-                    if (filteredClusters.isEmpty()) {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Text("NO MATCHING DATA NODES", color = VelvetTheme.SlateBlue)
-                        }
-                    } else {
-                        LazyVerticalGrid(
-                            columns = GridCells.Adaptive(minSize = 240.dp),
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            items(filteredClusters) { cluster ->
-                                ModernClusterCard(
-                                    cluster = cluster,
-                                    onDelete = { clusterToDelete = cluster },
-                                    onClick = { selectedCluster = cluster }
-                                )
-                            }
-                        }
                     }
                 }
             }
@@ -732,12 +681,13 @@ fun FileInspectorSidebar(
     val fullPath = "$clusterPath/${file.name}.${file.extension.lowercase()}"
     val fileObj = File(fullPath)
     val sizeRatio = if (clusterTotalSize > 0) fileObj.length().toFloat() / clusterTotalSize else 0f
+    val scrollState = rememberScrollState()
 
     Column(
         modifier = Modifier
-            .fillMaxHeight()
             .width(320.dp)
             .background(VelvetTheme.DeepOcean)
+            .verticalScroll(scrollState)
             .drawBehind {
                 drawLine(VelvetTheme.SlateBlue, Offset(0f, 0f), Offset(0f, size.height), 2.dp.toPx())
             }
@@ -768,7 +718,7 @@ fun FileInspectorSidebar(
         InspectorField("TYPE / FORMAT", file.extension)
         InspectorField("FILE SIZE", file.sizeString)
 
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.height(40.dp))
 
         Button(
             onClick = { try { java.awt.Desktop.getDesktop().browse(fileObj.parentFile.toURI()) } catch(e: Exception) {} },
@@ -854,6 +804,51 @@ fun DetailHeader(
             modifier = Modifier.background(VelvetTheme.SlateBlue.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
         ) {
             Icon(Icons.Default.Refresh, null, tint = VelvetTheme.SunsetCoral)
+        }
+    }
+}
+
+@Composable
+fun DashboardHeader(
+    onOpenMap: () -> Unit,
+    onLogout: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(24.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column {
+            Text(
+                "CORE CONTROL",
+                style = MaterialTheme.typography.h4,
+                fontWeight = FontWeight.ExtraBold,
+                color = VelvetTheme.SunsetCoral,
+                letterSpacing = 2.sp
+            )
+            Text(
+                "NETWORK OPERATOR INTERFACE",
+                style = MaterialTheme.typography.caption,
+                color = VelvetTheme.SlateBlue
+            )
+        }
+
+        Row {
+            IconButton(
+                onClick = onOpenMap,
+                modifier = Modifier.background(VelvetTheme.DeepOcean, RoundedCornerShape(12.dp))
+            ) {
+                Icon(Icons.Default.Map, "Topology Map", tint = VelvetTheme.SunsetCoral)
+            }
+            Spacer(Modifier.width(12.dp))
+            IconButton(
+                onClick = onLogout,
+                modifier = Modifier.background(VelvetTheme.DeepMaroon, RoundedCornerShape(12.dp))
+            ) {
+                Icon(Icons.Default.ExitToApp, "Logout", tint = Color.White)
+            }
         }
     }
 }

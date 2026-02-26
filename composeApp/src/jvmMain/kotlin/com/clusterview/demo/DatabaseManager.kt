@@ -10,6 +10,7 @@ object DatabaseManager {
     private val registeredUsers = mutableListOf<User>()
 
     private var connection: Connection? = null
+
     init {
         loadUsersFromDisk()
     }
@@ -46,15 +47,18 @@ object DatabaseManager {
             val statement = conn.createStatement()
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_file_name ON files(name)")
 
-            statement.executeUpdate("""
+            statement.executeUpdate(
+                """
                 CREATE TABLE IF NOT EXISTS clusters (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL,
                     color TEXT
                 )
-            """.trimIndent())
+            """.trimIndent()
+            )
 
-            statement.executeUpdate("""
+            statement.executeUpdate(
+                """
                 CREATE TABLE IF NOT EXISTS files (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     name TEXT NOT NULL,
@@ -65,12 +69,14 @@ object DatabaseManager {
                     cluster_id INTEGER,
                     FOREIGN KEY (cluster_id) REFERENCES clusters(id)
                 )
-            """.trimIndent())
+            """.trimIndent()
+            )
         }
     }
 
     fun insertFile(file: FileEntry) {
-        val sql = "INSERT OR REPLACE INTO files (name, path, extension, size, last_modified, cluster_id) VALUES (?, ?, ?, ?, ?, ?)"
+        val sql =
+            "INSERT OR REPLACE INTO files (name, path, extension, size, last_modified, cluster_id) VALUES (?, ?, ?, ?, ?, ?)"
         getConnection().use { conn ->
             conn.prepareStatement(sql).use { pstmt ->
                 pstmt.setString(1, file.name)
@@ -89,22 +95,25 @@ object DatabaseManager {
         getConnection().use { conn ->
             val rs = conn.createStatement().executeQuery("SELECT * FROM files")
             while (rs.next()) {
-                files.add(FileEntry(
-                    rs.getInt("id"),
-                    rs.getString("name"),
-                    rs.getString("path"),
-                    rs.getString("extension"),
-                    rs.getLong("size"),
-                    rs.getLong("last_modified"),
-                    rs.getInt("cluster_id")
-                ))
+                files.add(
+                    FileEntry(
+                        rs.getInt("id"),
+                        rs.getString("name"),
+                        rs.getString("path"),
+                        rs.getString("extension"),
+                        rs.getLong("size"),
+                        rs.getLong("last_modified"),
+                        rs.getInt("cluster_id")
+                    )
+                )
             }
         }
         return files
     }
 
     fun batchInsertFiles(files: List<FileEntry>) {
-        val sql = "INSERT OR REPLACE INTO files (name, path, extension, size, last_modified, cluster_id) VALUES (?, ?, ?, ?, ?, ?)"
+        val sql =
+            "INSERT OR REPLACE INTO files (name, path, extension, size, last_modified, cluster_id) VALUES (?, ?, ?, ?, ?, ?)"
         getConnection().use { conn ->
             conn.autoCommit = false // Start transaction
             try {
@@ -146,15 +155,17 @@ object DatabaseManager {
                 pstmt.setInt(1, clusterId)
                 val rs = pstmt.executeQuery()
                 while (rs.next()) {
-                    files.add(FileEntry(
-                        id = rs.getInt("id"),
-                        name = rs.getString("name"),
-                        path = rs.getString("path"),
-                        extension = rs.getString("extension"),
-                        size = rs.getLong("size"),
-                        lastModified = rs.getLong("last_modified"),
-                        clusterId = rs.getInt("cluster_id")
-                    ))
+                    files.add(
+                        FileEntry(
+                            id = rs.getInt("id"),
+                            name = rs.getString("name"),
+                            path = rs.getString("path"),
+                            extension = rs.getString("extension"),
+                            size = rs.getLong("size"),
+                            lastModified = rs.getLong("last_modified"),
+                            clusterId = rs.getInt("cluster_id")
+                        )
+                    )
                 }
             }
         }
@@ -171,15 +182,17 @@ object DatabaseManager {
                 pstmt.setString(2, "%$query%")
                 val rs = pstmt.executeQuery()
                 while (rs.next()) {
-                    files.add(FileEntry(
-                        rs.getInt("id"),
-                        rs.getString("name"),
-                        rs.getString("path"),
-                        rs.getString("extension"),
-                        rs.getLong("size"),
-                        rs.getLong("last_modified"),
-                        rs.getInt("cluster_id")
-                    ))
+                    files.add(
+                        FileEntry(
+                            rs.getInt("id"),
+                            rs.getString("name"),
+                            rs.getString("path"),
+                            rs.getString("extension"),
+                            rs.getLong("size"),
+                            rs.getLong("last_modified"),
+                            rs.getInt("cluster_id")
+                        )
+                    )
                 }
             }
         }
@@ -239,7 +252,13 @@ object DatabaseManager {
 
     fun getUserById(userId: Int): User? {
         return try {
-            User(id = userId, email = "user@example.com", username = "OlympiadCandidate", passwordHash = "mock_hash", name = "Olympiad Candidate")
+            User(
+                id = userId,
+                email = "user@example.com",
+                username = "OlympiadCandidate",
+                passwordHash = "mock_hash",
+                name = "Olympiad Candidate"
+            )
         } catch (e: Exception) {
             null
         }
@@ -273,6 +292,30 @@ object DatabaseManager {
 
     fun verifyLogin(email: String, pass: String): User? {
         return registeredUsers.find { it.email == email && it.passwordHash == pass }
+    }
+
+    fun deleteCluster(clusterId: Int): Boolean {
+        return try {
+            getConnection().use { conn ->
+                // Delete all files associated with this cluster first
+                val deleteFilesSql = "DELETE FROM files WHERE cluster_id = ?"
+                conn.prepareStatement(deleteFilesSql).use { pstmt ->
+                    pstmt.setInt(1, clusterId)
+                    pstmt.executeUpdate()
+                }
+
+                // Then delete the cluster itself
+                val deleteClusterSql = "DELETE FROM clusters WHERE id = ?"
+                conn.prepareStatement(deleteClusterSql).use { pstmt ->
+                    pstmt.setInt(1, clusterId)
+                    pstmt.executeUpdate()
+                }
+            }
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
     }
 }
 
