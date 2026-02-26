@@ -1,28 +1,22 @@
-This is a Kotlin Multiplatform project targeting Desktop (JVM).
+ClusterView 🖥️
+ClusterView е модерно настолно приложение за визуален мениджмънт и 
+локален мониторинг на клъстерни ресурси. 
+Проектът е изграден с фокус върху производителността, сигурността и чистата архитектура.
 
-* [/composeApp](./composeApp/src) is for code that will be shared across your Compose Multiplatform applications.
-  It contains several subfolders:
-    - [commonMain](./composeApp/src/commonMain/kotlin) is for code that’s common for all targets.
-    - Other folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.
-      For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app,
-      the [iosMain](./composeApp/src/iosMain/kotlin) folder would be the right place for such calls.
-      Similarly, if you want to edit the Desktop (JVM) specific part, the [jvmMain](./composeApp/src/jvmMain/kotlin)
-      folder is the appropriate location.
+🚀 Основни функции
+Сигурен достъп: Интегрирана система за регистрация и вход (Login/Signup) за защита на потребителските данни.
+Интуитивен Dashboard: Централизиран панел "Core Control" за управление и търсене на активни обекти.
+Визуална аналитика: Графично представяне на разпределението на ресурсите чрез интерактивни диаграми (Donut charts).
+Локална автономност: Пълна функционалност в офлайн режим благодарение на вградена SQLite база данни.
 
-### Build and Run Desktop (JVM) Application
+🛠️ Технологичен стек
+Език: Kotlin (JVM)
+UI Framework: Jetpack Compose for Desktop
+Архитектура: Kotlin Multiplatform (KMP) за разделяне на бизнес логиката от интерфейса.
+База данни: SQLite (SQL)
+Асинхронност: Kotlin Coroutines за плавна работа без блокиране на UI.
 
-To build and run the development version of the desktop app, use the run configuration from the run widget
-in your IDE’s toolbar or run it directly from the terminal:
-
-- on macOS/Linux
-  ```shell
-  ./gradlew :composeApp:run
-  ```
-- on Windows
-  ```shell
-  .\gradlew.bat :composeApp:run
-  ```
-
----
-
-Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…
+📐 Системни изисквания
+ОС: Windows 10+, macOS 11.0+, Linux
+RAM: Минимум 4 GB
+Диск: 200 MB свободно пространство
