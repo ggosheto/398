@@ -24,23 +24,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.io.File
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 import javax.swing.JFileChooser
 import javax.swing.UIManager
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
-
-/*data class Cluster(
-    val id: Int,
-    val name: String,
-    val fileCount: Int,
-    val path: String,
-    val lastModified: String,
-    val hasDuplicates: Boolean = false
-)*/
 
 data class FileMetadata(
     val name: String,
@@ -79,7 +68,6 @@ fun HomeView(
     var clusterToDelete by remember { mutableStateOf<Cluster?>(null) }
     var selectedCluster by remember { mutableStateOf<Cluster?>(null) }
 
-    // Logic to filter and sort your real data (Testova2, TestovaPapka, etc.)
     val filteredClusters = remember(searchTerm, clusters, currentSort) {
         clusters.filter { it.name.contains(searchTerm, ignoreCase = true) }
             .sortedWith(when (currentSort) {
@@ -89,15 +77,12 @@ fun HomeView(
             })
     }
 
-    // Use fillMaxSize() on the root Column to provide a boundary for weight
     Column(modifier = Modifier.fillMaxSize().background(VelvetTheme.MidnightNavy)) {
 
-        // Header Section (Stateless)
         DashboardHeader(onOpenMap = onOpenMap, onLogout = onLogoutSuccess)
 
         Column(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
 
-            // Search and Sort Bar
             Row(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -150,14 +135,11 @@ fun HomeView(
                 }
             }
 
-            // Main Content Area
             if (filteredClusters.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("NO MATCHING DATA NODES", color = VelvetTheme.SlateBlue)
                 }
             } else {
-                // THE FIX: Adding Modifier.weight(1f) tells the grid exactly how much space it has.
-                // This prevents the "Infinity Height" crash.
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 240.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -168,10 +150,7 @@ fun HomeView(
                         ModernClusterCard(
                             cluster = cluster,
                             onDelete = {
-                                // Don't call .remove() here!
-                                // Call a function that updates the database and refreshes the App.kt list
                                 DatabaseManager.deleteCluster(cluster.id)
-                                // Then you'll need a way to tell App.kt to refresh the list
                             },
                             onClick = { onClusterClick(cluster) }
                         )
@@ -298,14 +277,13 @@ enum class SortMethod { NAME, SIZE, TYPE }
 
 @Composable
 fun ClusterDetailView(cluster: Cluster, onRefresh: () -> Unit, onBack: () -> Unit) {
-    // 1. DATA PROCESSING
     val filesInFolder = remember(cluster.path, cluster.lastModified) {
         File(cluster.path).listFiles()?.filter { it.isFile }?.map { file ->
             FileMetadata(
                 name = file.nameWithoutExtension,
                 extension = file.extension.uppercase(),
                 sizeString = formatReadableSize(file.length()),
-                sizeBytes = file.length() // Added for accurate sorting
+                sizeBytes = file.length()
             )
         } ?: emptyList()
     }
@@ -471,8 +449,8 @@ fun DistributionPieChart(distribution: Map<String, Float>, totalSize: String) {
                             color = colors[label] ?: Color.Gray,
                             startAngle = startAngle,
                             sweepAngle = sweepAngle,
-                            useCenter = false, // Changed to false for a "Ring" look
-                            style = Stroke(width = 40f, cap = StrokeCap.Round) // Modern thick stroke
+                            useCenter = false,
+                            style = Stroke(width = 40f, cap = StrokeCap.Round)
                         )
                         startAngle += sweepAngle
                     }
@@ -481,13 +459,13 @@ fun DistributionPieChart(distribution: Map<String, Float>, totalSize: String) {
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = totalSize.split(" ")[0], // The Number
+                    text = totalSize.split(" ")[0],
                     style = MaterialTheme.typography.h4,
                     color = Color.White,
                     fontWeight = FontWeight.ExtraBold
                 )
                 Text(
-                    text = totalSize.split(" ").getOrElse(1) { "" }, // The Unit (MB/GB)
+                    text = totalSize.split(" ").getOrElse(1) { "" },
                     style = MaterialTheme.typography.caption,
                     color = VelvetTheme.SunsetCoral,
                     fontWeight = FontWeight.Bold
@@ -582,7 +560,7 @@ fun loadClusters(): List<Cluster> {
                 parts[3].toInt(),
                 parts[2],
                 parts[4],
-                parts[5].toBoolean() // The 6th part
+                parts[5].toBoolean()
             )
         } else if (parts.size == 5) {
             Cluster(parts[0].toInt(), parts[1], parts[3].toInt(), parts[2], parts[4], false)
@@ -606,7 +584,6 @@ fun getFileDistribution(path: String): Map<String, Float> {
     val files = File(path).listFiles()?.filter { it.isFile } ?: return emptyMap()
     if (files.isEmpty()) return emptyMap()
 
-    // Expanded Categories to include your specific file types
     val categories = mapOf(
         "Images" to listOf("JPG", "JPEG", "PNG", "GIF", "SVG", "WEBP", "BMP"),
         "Docs"   to listOf("PDF", "PPT", "PPTX", "DOC", "DOCX", "TXT", "XLSX", "CSV"),

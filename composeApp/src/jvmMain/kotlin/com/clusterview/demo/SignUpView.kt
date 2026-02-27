@@ -27,8 +27,8 @@ fun SignUpView(onSignUpSuccess: (User?) -> Unit, onNavigateToLogin: () -> Unit) 
     Box(modifier = Modifier.fillMaxSize().background(OxfordBlue), contentAlignment = Alignment.Center) {
         Card(
             modifier = Modifier.width(450.dp).padding(16.dp),
-            shape = RoundedCornerShape(24.dp), // More rounded for modern look
-            backgroundColor = Color(0xFF37415C), // Slightly lighter blue for depth
+            shape = RoundedCornerShape(24.dp),
+            backgroundColor = Color(0xFF37415C),
             elevation = 12.dp
         ) {
             Column(Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -37,18 +37,15 @@ fun SignUpView(onSignUpSuccess: (User?) -> Unit, onNavigateToLogin: () -> Unit) 
 
                 Spacer(Modifier.height(32.dp))
 
-                // Modern Outlined Text Fields with Tan accents
                 FuturisticTextField(value = email, onValueChange = { email = it }, label = "Email Address")
                 Spacer(Modifier.height(16.dp))
-                // Field 1: Password
                 FuturisticTextField(
                     value = password,
                     onValueChange = { password = it },
-                    label = "PASSWORD (SECURITY KEY)", // Clarification in the label
+                    label = "PASSWORD (SECURITY KEY)",
                     isPassword = true
                 )
 
-                // The Requirement Checklist we built earlier stays here
                 Spacer(Modifier.height(8.dp))
                 Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
                     RequirementText("Min. 6 Characters", password.length >= 6)
@@ -58,7 +55,6 @@ fun SignUpView(onSignUpSuccess: (User?) -> Unit, onNavigateToLogin: () -> Unit) 
 
                 Spacer(Modifier.height(16.dp))
 
-                // Field 2: Confirm Password
                 FuturisticTextField(
                     value = confirmPassword,
                     onValueChange = { confirmPassword = it },
@@ -68,7 +64,7 @@ fun SignUpView(onSignUpSuccess: (User?) -> Unit, onNavigateToLogin: () -> Unit) 
                 if (validationError != null) {
                     Text(
                         text = validationError!!,
-                        color = Color(0xFF54162B), // Tech-red
+                        color = Color(0xFF54162B),
                         style = MaterialTheme.typography.caption,
                         modifier = Modifier.padding(top = 8.dp)
                     )
@@ -98,21 +94,16 @@ fun SignUpView(onSignUpSuccess: (User?) -> Unit, onNavigateToLogin: () -> Unit) 
                             else -> {
                                 val dbError = DatabaseManager.registerUser(email, password)
                                 if (dbError == null) {
-                                    // After successful registration, verify login and get the user
                                     val registeredUser = DatabaseManager.verifyLogin(email, password)
 
                                     if (registeredUser != null) {
-                                        // If STAY LOGGED IN is checked, save the user
                                         if (stayLoggedIn) {
                                             AuthManager.saveUser(registeredUser.id)
-                                            // Pass the user so App knows to go to home screen
                                             onSignUpSuccess(registeredUser)
                                         } else {
-                                            // No auto-login, just close the dialog
                                             onSignUpSuccess(null)
                                         }
                                     } else {
-                                        // This shouldn't happen, but handle it
                                         onSignUpSuccess(null)
                                     }
                                 } else {

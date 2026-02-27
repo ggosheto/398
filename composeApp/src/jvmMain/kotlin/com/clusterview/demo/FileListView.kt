@@ -16,15 +16,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.clusterview.demo.FileScanner.revealFileInExplorer
 
 val AccentColor = Color(0xFFD2B48C)
-val DarkBg = Color(0xFF000814)
-val LightBg = Color(0xFFF0F2F5)
 
 enum class SortOrder { NAME, SIZE, TYPE }
 
@@ -144,14 +139,14 @@ fun DistributionBar(files: List<FileEntry>) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(12.dp) // Slightly thicker for a modern look
+                .height(12.dp)
                 .clip(RoundedCornerShape(4.dp))
                 .background(Color.Gray.copy(0.1f))
         ) {
             weightStats.forEachIndexed { i, s ->
                 Box(
                     Modifier
-                        .weight(s.second.coerceAtLeast(0.01f)) // Ensure even tiny files show a sliver
+                        .weight(s.second.coerceAtLeast(0.01f))
                         .fillMaxHeight()
                         .background(colors.getOrElse(i) { Color.Gray })
                 )
@@ -159,15 +154,14 @@ fun DistributionBar(files: List<FileEntry>) {
         }
         FlowRow(
             modifier = Modifier.padding(top = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp), // Use horizontalArrangement
-            verticalArrangement = Arrangement.spacedBy(8.dp)     // Use verticalArrangement
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             weightStats.forEachIndexed { i, s ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(10.dp).clip(CircleShape).background(colors[i]))
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        // Now shows how much SPACE it takes, not just count
                         text = "${s.first.uppercase()} ${(s.second * 100).toInt()}%",
                         color = Color.White.copy(0.8f),
                         style = MaterialTheme.typography.caption,

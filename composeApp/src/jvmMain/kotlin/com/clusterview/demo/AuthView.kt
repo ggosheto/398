@@ -20,14 +20,12 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 
-// --- THEME COLORS ---
 val MidnightNavy = Color(0xFF181A2F)
 val DeepOcean = Color(0xFF242E49)
 val SlateBlue = Color(0xFF37415C)
 val SunsetCoral = Color(0xFFFDA481)
 val CrimsonRed = Color(0xFFB4182D)
-// val DeepMaroon = Color(0xFF54162B)
-// val SoftSand = Color(0xFFDFB6B2)
+
 
 @Composable
 fun LoginView(
@@ -97,7 +95,6 @@ fun LoginView(
                 Button(
                     onClick = {
                         isLoading = true
-                        // FIX: Ensure DatabaseManager.verifyLogin is visible and accessible
                         val authenticatedUser = DatabaseManager.verifyLogin(email, password)
 
                         if (authenticatedUser != null) {
@@ -158,11 +155,9 @@ fun AuthView(onLoginSuccess: (User) -> Unit) {
         SignUpView(
             onSignUpSuccess = { user ->
                 if (user != null) {
-                    // User signed up with STAY LOGGED IN - log them in
                     showSignUp = false
                     onLoginSuccess(user)
                 } else {
-                    // User signed up without STAY LOGGED IN - go back to login
                     showSignUp = false
                 }
             },

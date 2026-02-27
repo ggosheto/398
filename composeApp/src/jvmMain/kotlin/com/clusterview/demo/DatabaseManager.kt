@@ -115,7 +115,7 @@ object DatabaseManager {
         val sql =
             "INSERT OR REPLACE INTO files (name, path, extension, size, last_modified, cluster_id) VALUES (?, ?, ?, ?, ?, ?)"
         getConnection().use { conn ->
-            conn.autoCommit = false // Start transaction
+            conn.autoCommit = false
             try {
                 conn.prepareStatement(sql).use { pstmt ->
                     for (file in files) {
@@ -269,12 +269,10 @@ object DatabaseManager {
     }
 
     fun getClusterSummaries(): List<ClusterSummary> {
-        // Add your existing DB logic here
         return emptyList()
     }
 
     fun registerUser(email: String, pass: String): String? {
-        // 1. Check if the email is already in our list
         if (registeredUsers.any { it.email.equals(email, ignoreCase = true) }) {
             return "CRITICAL ERROR: OPERATOR EMAIL ALREADY REGISTERED" // Return error message
         }
@@ -297,14 +295,12 @@ object DatabaseManager {
     fun deleteCluster(clusterId: Int): Boolean {
         return try {
             getConnection().use { conn ->
-                // Delete all files associated with this cluster first
                 val deleteFilesSql = "DELETE FROM files WHERE cluster_id = ?"
                 conn.prepareStatement(deleteFilesSql).use { pstmt ->
                     pstmt.setInt(1, clusterId)
                     pstmt.executeUpdate()
                 }
 
-                // Then delete the cluster itself
                 val deleteClusterSql = "DELETE FROM clusters WHERE id = ?"
                 conn.prepareStatement(deleteClusterSql).use { pstmt ->
                     pstmt.setInt(1, clusterId)
@@ -331,7 +327,6 @@ object DatabaseManager {
     fun getFilesFromPath(path: String): List<String> {
         val folder = File(path)
         return if (folder.exists() && folder.isDirectory) {
-            // This MUST return names like "image.png", "document.pdf"
             folder.listFiles()
                 ?.filter { it.isFile }
                 ?.map { it.name } ?: emptyList()

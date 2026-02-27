@@ -4,23 +4,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-//import com.clusterview.demo.DatabaseManager.fileNames
 
 @Composable
 fun App() {
     var currentScreen by remember { mutableStateOf("splash") }
     var currentUser by remember { mutableStateOf<User?>(null) }
     var selectedCluster by remember { mutableStateOf<Cluster?>(null) }
-    /*var currentUser by remember {
-        mutableStateOf<User?>(
-            if (AuthManager.isUserRemembered()) {
-                DatabaseManager.getUserById(AuthManager.getSavedUserId())
-            } else null
-        )
-    }*/
     val selectedPath = "/user/path/to/folder"
-   // val fileNames = DatabaseManager.getClusterWithFiles(selectedPath)
     val clusters = remember { mutableStateListOf<Cluster>() }
     var selectedClusterName by remember { mutableStateOf("") }
     var loadedFiles by remember { mutableStateOf(emptyList<FileEntry>()) }
@@ -34,7 +24,7 @@ fun App() {
 
             if (user != null) {
                 currentUser = user
-                currentScreen = "home" // MUST match your when block
+                currentScreen = "home"
             } else {
                 currentScreen = "login"
             }
@@ -56,11 +46,9 @@ fun App() {
                 "signup" -> SignUpView(
                     onSignUpSuccess = { user ->
                         if (user != null) {
-                            // User signed up with STAY LOGGED IN
                             currentUser = user
                             currentScreen = "home"
                         } else {
-                            // User signed up without STAY LOGGED IN - back to login
                             currentScreen = "login"
                         }
                     },
@@ -87,26 +75,8 @@ fun App() {
                 }
 
                 "map" -> {
-                    /*VisualizationMapView(
-                        // IMPORTANT: Use the 'clusters' variable that you updated during import
-                        clusters = clusters.map { summary ->
-                            Cluster(
-                                id = summary.id,
-                                name = summary.name,
-                                fileCount = summary.fileCount,
-                                path = "",
-                                lastModified = "",
-                                files = actualFiles
-                            )
-                        },
-                        onBack = { currentScreen = "home" },
-                        onClusterClick = { cluster ->
-                            selectedClusterName = cluster.name
-                            currentScreen = "list"
-                        }
-                    )*/
                     VisualizationMapView(
-                        clusters = clusters, // <-- CHECK: Is this the same list you added folders to?
+                        clusters = clusters,
                         onBack = { currentScreen = "home" },
                         onClusterClick = { cluster ->
                             selectedCluster = cluster
@@ -128,15 +98,4 @@ fun App() {
             }
         }
     }
-
-    val OxfordBlue = Color(0, 33, 71)
-    val Tan = Color(210, 180, 140)
-    val LightGrayBg = Color(0xFFF1F3F5)
-
-    val scope = rememberCoroutineScope()
-    var isScanning by remember { mutableStateOf(false) }
-    var statusText by remember { mutableStateOf("System Ready") }
-
-    var filesInCluster by remember { mutableStateOf(listOf<FileEntry>()) }
-
 }

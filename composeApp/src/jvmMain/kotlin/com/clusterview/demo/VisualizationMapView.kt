@@ -1,18 +1,15 @@
 package com.clusterview.demo
 
-import androidx.compose.animation.*
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -46,7 +43,6 @@ fun VisualizationMapView(
     var selectedClusterId by remember { mutableStateOf<Int?>(null) }
     var visibleClusters by remember { mutableStateOf(clusters.map { it.id }.toSet()) }
 
-    // Map to track positions of REAL cluster IDs
     val nodePositions = remember(clusters) {
         mutableStateMapOf<Int, Offset>().apply {
             clusters.forEachIndexed { index, cluster ->
@@ -62,7 +58,6 @@ fun VisualizationMapView(
 
     Box(modifier = Modifier.fillMaxSize().background(VelvetTheme.DeepOcean)) {
         Row(modifier = Modifier.fillMaxSize()) {
-            // Main Canvas Area
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -97,7 +92,6 @@ fun VisualizationMapView(
                             translationY = offset.y
                         )
                 ) {
-                    // Grid Background
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         val gridSize = 50f
                         for (x in 0..size.width.toInt() step 50) {
@@ -118,7 +112,6 @@ fun VisualizationMapView(
                         }
                     }
 
-                    // Dynamic Edges (Lines between clusters)
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         val visibleClusterList = clusters.filter { it.id in visibleClusters }
                         for (i in visibleClusterList.indices) {
@@ -145,21 +138,24 @@ fun VisualizationMapView(
                         }
                     }
 
-                    // Dynamic Nodes (The Cluster Bubbles)
                     clusters.filter { it.id in visibleClusters }.forEach { cluster ->
-                        val pos = nodePositions[cluster.id] ?: Offset.Zero
-                        NodeElement(
-                            cluster = cluster,
-                            position = pos,
-                            isSelected = selectedClusterId == cluster.id,
-                            isHovered = hoveredClusterId == cluster.id,
-                            onPositionChange = { newPos -> nodePositions[cluster.id] = newPos },
-                            onHover = { hoveredClusterId = it },
-                            onClick = {
-                                selectedClusterId = cluster.id
-                                onClusterClick(cluster) // This takes you to the Dashboard folder
+                        clusters.forEachIndexed { index, cluster ->
+                            val pos = nodePositions[cluster.id] ?: Offset(400f, 300f)
+
+                            val animatedAlpha by animateFloatAsState(
+                                targetValue = 1f,
+                                animationSpec = tween(durationMillis = 500, delayMillis = index * 50)
+                            )
+
+                            Box(modifier = Modifier.graphicsLayer(alpha = animatedAlpha, scaleX = animatedAlpha, scaleY = animatedAlpha)) {
+                                NodeElement(
+                                    cluster = cluster,
+                                    position = pos,
+                                    onPositionChange = { nodePositions[cluster.id] = it },
+                                    onClick = { onClusterClick(cluster) }
+                                )
                             }
-                        )
+                        }
                     }
                 }
 
@@ -192,7 +188,6 @@ fun NodeElement(
         modifier = Modifier
             .offset { IntOffset(position.x.roundToInt(), position.y.roundToInt()) }
             .size(120.dp)
-            // CLICKABLE added to handle navigation
             .clickable { onClick() }
             .pointerInput(cluster.id) {
                 detectDragGestures(
