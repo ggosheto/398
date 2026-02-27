@@ -5,6 +5,7 @@ import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+//import com.clusterview.demo.DatabaseManager.fileNames
 
 @Composable
 fun App() {
@@ -18,9 +19,13 @@ fun App() {
             } else null
         )
     }*/
-    var clusters by remember { mutableStateOf(emptyList<ClusterSummary>()) }
+    val selectedPath = "/user/path/to/folder"
+   // val fileNames = DatabaseManager.getClusterWithFiles(selectedPath)
+    val clusters = remember { mutableStateListOf<Cluster>() }
     var selectedClusterName by remember { mutableStateOf("") }
     var loadedFiles by remember { mutableStateOf(emptyList<FileEntry>()) }
+    val folder = java.io.File(selectedPath)
+    val actualFiles = folder.listFiles()?.filter { it.isFile }?.map { it.name } ?: emptyList()
 
     LaunchedEffect(Unit) {
         if (AuthManager.isUserRemembered()) {
@@ -82,7 +87,7 @@ fun App() {
                 }
 
                 "map" -> {
-                    VisualizationMapView(
+                    /*VisualizationMapView(
                         // IMPORTANT: Use the 'clusters' variable that you updated during import
                         clusters = clusters.map { summary ->
                             Cluster(
@@ -90,12 +95,21 @@ fun App() {
                                 name = summary.name,
                                 fileCount = summary.fileCount,
                                 path = "",
-                                lastModified = ""
+                                lastModified = "",
+                                files = actualFiles
                             )
                         },
                         onBack = { currentScreen = "home" },
                         onClusterClick = { cluster ->
                             selectedClusterName = cluster.name
+                            currentScreen = "list"
+                        }
+                    )*/
+                    VisualizationMapView(
+                        clusters = clusters, // <-- CHECK: Is this the same list you added folders to?
+                        onBack = { currentScreen = "home" },
+                        onClusterClick = { cluster ->
+                            selectedCluster = cluster
                             currentScreen = "list"
                         }
                     )

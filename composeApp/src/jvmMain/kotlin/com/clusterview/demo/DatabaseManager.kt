@@ -317,5 +317,27 @@ object DatabaseManager {
             false
         }
     }
+
+    fun getClusterWithFiles(path: String): List<String> {
+        val folder = File(path)
+        return if (folder.exists() && folder.isDirectory) {
+            // This grabs every file name inside the folder
+            folder.listFiles()?.filter { it.isFile }?.map { it.name } ?: emptyList()
+        } else {
+            emptyList()
+        }
+    }
+
+    fun getFilesFromPath(path: String): List<String> {
+        val folder = File(path)
+        return if (folder.exists() && folder.isDirectory) {
+            // This MUST return names like "image.png", "document.pdf"
+            folder.listFiles()
+                ?.filter { it.isFile }
+                ?.map { it.name } ?: emptyList()
+        } else {
+            emptyList()
+        }
+    }
 }
 
