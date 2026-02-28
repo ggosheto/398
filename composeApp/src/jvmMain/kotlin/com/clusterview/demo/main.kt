@@ -1,16 +1,15 @@
 package com.clusterview.demo
 
 import androidx.compose.material.MaterialTheme
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
+import androidx.compose.ui.window.rememberWindowState
+import androidx.compose.ui.unit.dp
 
 fun main() = application {
-    // Top-level state that persists across screens
+    DatabaseManager.init()
+
     val clusters = remember { mutableStateListOf<Cluster>() }
     var currentScreen by remember { mutableStateOf("login") }
     var currentUser by remember { mutableStateOf<User?>(null) }
@@ -20,6 +19,7 @@ fun main() = application {
     Window(
         onCloseRequest = ::exitApplication,
         title = "ClusterView",
+        state = rememberWindowState(width = 1200.dp, height = 800.dp)
     ) {
         MaterialTheme {
             NavigationController(
@@ -37,17 +37,21 @@ fun main() = application {
                     currentScreen = "login"
                 },
                 onCreateNewCluster = { name: String, pcPath: String ->
-                    clusters.add(Cluster(
+                    val newCluster = Cluster(
                         id = clusters.size + 1,
                         name = name,
                         path = pcPath,
                         fileCount = 0,
-                        lastModified = "Created Now",
+                        lastModified = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy (HH:mm)")),
                         files = emptyList(),
                         isUserCreated = true
-                    ))
+                    )
+
+                    clusters.add(newCluster)
                 },
-                onBack = { currentScreen = "home" }
+                onBack = {
+                    currentScreen = "home"
+                }
             )
         }
     }

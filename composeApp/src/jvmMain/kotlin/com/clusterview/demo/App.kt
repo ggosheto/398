@@ -1,3 +1,4 @@
+
 package com.clusterview.demo
 
 import androidx.compose.animation.*
@@ -19,6 +20,7 @@ fun App() {
     var clipboardFiles by remember { mutableStateOf(setOf<FileEntry>()) }
 
     LaunchedEffect(Unit) {
+        DatabaseManager.init()
         if (AuthManager.isUserRemembered()) {
             val savedId = AuthManager.getSavedUserId()
             val user = DatabaseManager.getUserById(savedId)

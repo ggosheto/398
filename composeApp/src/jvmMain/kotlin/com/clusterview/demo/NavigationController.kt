@@ -21,7 +21,7 @@ fun NavigationController(
     onCreateNewCluster: (String, String) -> Unit,
     onBack: () -> Unit
 ) {
-    val allClusters = remember { mutableStateListOf<Cluster>().apply { addAll(loadClustersFromFile()) } }
+    val allClusters = remember { mutableStateListOf<Cluster>().apply { addAll(loadClustersFromDatabase(currentUser?.id ?: -1)) } }
 
     var refreshKey by remember { mutableStateOf(0) }
 
@@ -58,7 +58,7 @@ fun NavigationController(
             Screen.DASHBOARD -> {
                 LaunchedEffect(refreshKey) {
                     allClusters.clear()
-                    allClusters.addAll(loadClustersFromFile())
+                    allClusters.addAll(loadClustersFromDatabase(currentUser?.id ?: -1))
                 }
 
                 HomeView(
@@ -112,7 +112,7 @@ fun NavigationController(
                                         )
                                         allClusters[index] = updated
                                         selectedCluster = updated
-                                        saveClusters(allClusters)
+                                        saveClustersToDatabase(allClusters, currentUser?.id ?: -1)
                                     }
                                 }
                             },
@@ -125,25 +125,5 @@ fun NavigationController(
                 }
             }
         }
-    }
-}
-
-fun loadClustersFromFile(): List<Cluster> {
-    val file = File("clusters.txt")
-    if (!file.exists()) return emptyList()
-    return file.readLines().mapNotNull { line ->
-        val parts = line.split("|")
-        if (parts.size == 6) {
-            Cluster(
-                parts[0].toInt(),
-                parts[1],
-                parts[3].toInt(),
-                parts[2],
-                parts[4],
-                parts[5].toBoolean()
-            )
-        } else if (parts.size == 5) {
-            Cluster(parts[0].toInt(), parts[1], parts[3].toInt(), parts[2], parts[4], false)
-        } else null
     }
 }

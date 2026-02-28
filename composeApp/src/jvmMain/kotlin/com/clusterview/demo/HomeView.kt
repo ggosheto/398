@@ -61,7 +61,7 @@ fun HomeView(
     onOpenMap: () -> Unit,
     onLogoutSuccess: () -> Unit
 ) {
-    val clusters = remember(user?.id) { mutableStateListOf<Cluster>().apply { addAll(loadClusters(user?.id ?: -1)) } }
+    val clusters = remember(user?.id) { mutableStateListOf<Cluster>().apply { addAll(loadClustersFromDatabase(user?.id ?: -1)) } }
     var searchTerm by remember { mutableStateOf("") }
     var sortMenuExpanded by remember { mutableStateOf(false) }
     var currentSort by remember { mutableStateOf(SortOption.NAME) }
@@ -84,7 +84,7 @@ fun HomeView(
             onLogout = onLogoutSuccess,
             onRefresh = {
                 clusters.clear()
-                clusters.addAll(loadClusters(user?.id ?: -1))
+                clusters.addAll(loadClustersFromDatabase(user?.id ?: -1))
             }
         )
 
@@ -125,7 +125,7 @@ fun HomeView(
                                 hasDuplicates = hasDuplicates(folder.absolutePath)
                             )
                             clusters.add(newCluster)
-                            saveClusters(clusters, user?.id ?: -1)
+                            saveClustersToDatabase(clusters, user?.id ?: -1)
                         }
                     },
                     modifier = Modifier
@@ -206,7 +206,7 @@ fun HomeView(
             confirmButton = {
                 TextButton(onClick = {
                     clusters.remove(clusterToDelete)
-                    saveClusters(clusters, user?.id ?: -1)
+                    saveClustersToDatabase(clusters, user?.id ?: -1)
                     clusterToDelete = null
                 }) {
                     Text("REMOVE", color = VelvetTheme.CrimsonRed, fontWeight = FontWeight.Bold)
@@ -571,56 +571,48 @@ fun ModernFileRow(file: FileMetadata) {
         )
     }
 }
-fun saveClusters(clusters: List<Cluster>, userId: Int = -1) {
-    val workingDir = File(System.getProperty("user.dir"))
-    val baseDir = if (File(workingDir, "composeApp").exists()) {
-        File(workingDir, "composeApp")
-    } else {
-        workingDir
+fun saveClustersToDatabase(clusters: List<Cluster>, userId: Int = -1) {
+    try {
+        val userDataDir = File(System.getProperty("user.home"), "ClusterViewData/users/$userId")
+        userDataDir.mkdirs()
+        val clustersFile = File(userDataDir, "clusters.txt")
+        val data = clusters.joinToString("\n") {
+            "${it.id}|${it.name}|${it.path}|${it.fileCount}|${it.lastModified}|${it.hasDuplicates}"
+        }
+        clustersFile.writeText(data)
+        println("DEBUG: Saved ${clusters.size} clusters to: ${clustersFile.absolutePath}")
+    } catch (e: Exception) {
+        println("ERROR: Failed to save clusters: ${e.message}")
     }
-    val file = if (userId > 0) {
-        File(baseDir, "users/$userId/clusters.txt").also { it.parentFile.mkdirs() }
-    } else {
-        File(baseDir, "clusters.txt")
-    }
-    val data = clusters.joinToString("\n") {
-        "${it.id}|${it.name}|${it.path}|${it.fileCount}|${it.lastModified}|${it.hasDuplicates}"
-    }
-    file.writeText(data)
-    println("DEBUG: Saved ${clusters.size} clusters to: ${file.absolutePath}")
 }
 
-fun loadClusters(userId: Int = -1): List<Cluster> {
-    val workingDir = File(System.getProperty("user.dir"))
-    val baseDir = if (File(workingDir, "composeApp").exists()) {
-        File(workingDir, "composeApp")
-    } else {
-        workingDir
+fun loadClustersFromDatabase(userId: Int = -1): List<Cluster> {
+    return try {
+        val userDataDir = File(System.getProperty("user.home"), "ClusterViewData/users/$userId")
+        val clustersFile = File(userDataDir, "clusters.txt")
+        println("DEBUG: Loading clusters from: ${clustersFile.absolutePath}, exists: ${clustersFile.exists()}")
+        if (!clustersFile.exists()) return emptyList()
+        val loaded = clustersFile.readLines().mapNotNull { line ->
+            val parts = line.split("|")
+            if (parts.size == 6) {
+                Cluster(
+                    parts[0].toInt(),
+                    parts[1],
+                    parts[3].toInt(),
+                    parts[2],
+                    parts[4],
+                    parts[5].toBoolean()
+                )
+            } else if (parts.size == 5) {
+                Cluster(parts[0].toInt(), parts[1], parts[3].toInt(), parts[2], parts[4], false)
+            } else null
+        }
+        println("DEBUG: Loaded ${loaded.size} clusters")
+        loaded
+    } catch (e: Exception) {
+        println("ERROR: Failed to load clusters: ${e.message}")
+        emptyList()
     }
-    val file = if (userId > 0) {
-        File(baseDir, "users/$userId/clusters.txt")
-    } else {
-        File(baseDir, "clusters.txt")
-    }
-    println("DEBUG: Loading clusters from: ${file.absolutePath}, exists: ${file.exists()}")
-    if (!file.exists()) return emptyList()
-    val loaded = file.readLines().mapNotNull { line ->
-        val parts = line.split("|")
-        if (parts.size == 6) {
-            Cluster(
-                parts[0].toInt(),
-                parts[1],
-                parts[3].toInt(),
-                parts[2],
-                parts[4],
-                parts[5].toBoolean()
-            )
-        } else if (parts.size == 5) {
-            Cluster(parts[0].toInt(), parts[1], parts[3].toInt(), parts[2], parts[4], false)
-        } else null
-    }
-    println("DEBUG: Loaded ${loaded.size} clusters")
-    return loaded
 }
 fun pickFolderNatively(): File? {
     try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()) } catch (e: Exception) {}
