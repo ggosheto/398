@@ -1,99 +1,97 @@
 package com.clusterview.demo
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.material.*
+import androidx.compose.animation.*
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import java.io.File
 
 @Composable
 fun App() {
     var currentScreen by remember { mutableStateOf("splash") }
     var currentUser by remember { mutableStateOf<User?>(null) }
     var selectedCluster by remember { mutableStateOf<Cluster?>(null) }
-    val selectedPath = "/user/path/to/folder"
-    val clusters = remember { mutableStateListOf<Cluster>() }
     var selectedClusterName by remember { mutableStateOf("") }
-    var loadedFiles by remember { mutableStateOf(emptyList<FileEntry>()) }
-    val folder = java.io.File(selectedPath)
-    val actualFiles = folder.listFiles()?.filter { it.isFile }?.map { it.name } ?: emptyList()
+
+    val clusters = remember { mutableStateListOf<Cluster>() }
+    var clipboardFiles by remember { mutableStateOf(setOf<FileEntry>()) }
 
     LaunchedEffect(Unit) {
         if (AuthManager.isUserRemembered()) {
             val savedId = AuthManager.getSavedUserId()
             val user = DatabaseManager.getUserById(savedId)
-
             if (user != null) {
                 currentUser = user
                 currentScreen = "home"
-            } else {
-                currentScreen = "login"
-            }
-        } else {
-            currentScreen = "login"
-        }
+            } else { currentScreen = "login" }
+        } else { currentScreen = "login" }
     }
 
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
-            when (currentScreen) {
-                "login" -> LoginView(
-                    onAuthSuccess = { user ->
-                        currentUser = user
-                        currentScreen = "home"
-                    },
-                    onNavigateToSignUp = { currentScreen = "signup" }
-                )
-                "signup" -> SignUpView(
-                    onSignUpSuccess = { user ->
-                        if (user != null) {
-                            currentUser = user
-                            currentScreen = "home"
-                        } else {
-                            currentScreen = "login"
-                        }
-                    },
-                    onNavigateToLogin = { currentScreen = "login" }
-                )
+            AnimatedContent(targetState = currentScreen) { target ->
+                when (target) {
+                    "login" -> LoginView(
+                        onAuthSuccess = { user -> currentUser = user; currentScreen = "home" },
+                        onNavigateToSignUp = { currentScreen = "signup" }
+                    )
 
-                "home" -> {
-                    HomeView(
+                    "home" -> HomeView(
                         user = currentUser,
                         onClusterClick = { cluster ->
                             selectedCluster = cluster
                             selectedClusterName = cluster.name
                             currentScreen = "list"
                         },
-                        onOpenMap = {
-                            currentScreen = "map"
-                        },
+                        onOpenMap = { currentScreen = "map" },
                         onLogoutSuccess = {
                             currentUser = null
                             AuthManager.clear()
+                            clusters.clear()
+                            clipboardFiles = emptySet()
                             currentScreen = "login"
                         }
                     )
-                }
 
-                "map" -> {
-                    VisualizationMapView(
-                        clusters = clusters,
-                        onBack = { currentScreen = "home" },
-                        onClusterClick = { cluster ->
-                            selectedCluster = cluster
-                            currentScreen = "list"
-                        }
-                    )
-                }
+                    "list" -> {
+                        // FIX: Mapping String to FileEntry with correct types (Long for lastModified)
+                        val mappedFiles = selectedCluster?.files?.map { fileName ->
+                            FileEntry(
+                                name = fileName,
+                                size = 0L, // Use 0L to satisfy Long type requirement
+                                extension = fileName.substringAfterLast(".", ""),
+                                lastModified = 0L, // Use 0L to satisfy Long type requirement
+                                path = "${selectedCluster?.path}${File.separator}$fileName"
+                            )
+                        } ?: emptyList()
 
-                "list" -> {
-                    FileListView(
-                        clusterName = selectedClusterName,
-                        files = loadedFiles,
-                        onBack = { currentScreen = "home" },
-                        onSearch = { query ->
-                            loadedFiles = loadedFiles.filter { it.name.contains(query, ignoreCase = true) }
-                        }
-                    )
+                        FileListView(
+                            clusterName = selectedClusterName,
+                            files = mappedFiles,
+                            isUserCreated = selectedCluster?.isUserCreated ?: false,
+                            onBack = { currentScreen = "home" },
+                            onSearch = { /* Search handled in View */ },
+                            onCopyFile = { fileEntry ->
+                                clipboardFiles = clipboardFiles + fileEntry
+                            },
+                            onPasteFiles = {
+                                selectedCluster?.let { cluster ->
+                                    val updatedFiles = cluster.files.toMutableList()
+                                    clipboardFiles.forEach { updatedFiles.add(it.name) }
+                                    val index = clusters.indexOf(cluster)
+                                    if (index != -1) {
+                                        clusters[index] = cluster.copy(
+                                            files = updatedFiles.distinct(),
+                                            fileCount = updatedFiles.distinct().size
+                                        )
+                                    }
+                                }
+                                clipboardFiles = emptySet()
+                            }
+                        )
+                    }
                 }
             }
         }

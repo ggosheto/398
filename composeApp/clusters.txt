@@ -1,3 +1,4 @@
 1197597101|TestovaPapka|C:\Users\gg014\OneDrive\Desktop\TestovaPapka|6|Feb 11, 2026 (21:05)|false
 -1081324598|Testova2|C:\Users\gg014\OneDrive\Desktop\Testova2|2|Feb 27, 2026 (22:30)|false
 -1081324597|Testova3|C:\Users\gg014\OneDrive\Desktop\Testova3|1|Feb 11, 2026|false
+1197597103|Testova4|C:\Users\gg014\OneDrive\Desktop\Testova4|2|Just now|false

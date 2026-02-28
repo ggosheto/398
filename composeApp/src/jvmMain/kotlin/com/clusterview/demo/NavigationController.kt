@@ -11,7 +11,16 @@ enum class Screen {
 }
 
 @Composable
-fun NavigationController() {
+fun NavigationController(
+    currentScreen: String,
+    currentUser: User?,
+    clusters: List<Cluster>,
+    onClusterClick: (Cluster) -> Unit,
+    onOpenMap: () -> Unit,
+    onLogoutSuccess: () -> Unit,
+    onCreateNewCluster: (String, String) -> Unit,
+    onBack: () -> Unit
+) {
     val allClusters = remember { mutableStateListOf<Cluster>().apply { addAll(loadClustersFromFile()) } }
 
     var refreshKey by remember { mutableStateOf(0) }

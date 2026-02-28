@@ -18,7 +18,8 @@ data class Cluster(
     val path: String,
     val lastModified: String,
     val hasDuplicates: Boolean = false,
-    val files: List<String> = emptyList()
+    val files: List<String> = emptyList(),
+    val isUserCreated: Boolean = false
 )
 
 data class User(

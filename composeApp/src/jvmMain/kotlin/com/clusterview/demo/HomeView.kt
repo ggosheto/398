@@ -61,7 +61,7 @@ fun HomeView(
     onOpenMap: () -> Unit,
     onLogoutSuccess: () -> Unit
 ) {
-    val clusters = remember { mutableStateListOf<Cluster>().apply { addAll(loadClusters()) } }
+    val clusters = remember(user?.id) { mutableStateListOf<Cluster>().apply { addAll(loadClusters(user?.id ?: -1)) } }
     var searchTerm by remember { mutableStateOf("") }
     var sortMenuExpanded by remember { mutableStateOf(false) }
     var currentSort by remember { mutableStateOf(SortOption.NAME) }
@@ -79,7 +79,14 @@ fun HomeView(
 
     Column(modifier = Modifier.fillMaxSize().background(VelvetTheme.MidnightNavy)) {
 
-        DashboardHeader(onOpenMap = onOpenMap, onLogout = onLogoutSuccess)
+        DashboardHeader(
+            onOpenMap = onOpenMap,
+            onLogout = onLogoutSuccess,
+            onRefresh = {
+                clusters.clear()
+                clusters.addAll(loadClusters(user?.id ?: -1))
+            }
+        )
 
         Column(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
 
@@ -103,6 +110,30 @@ fun HomeView(
                     leadingIcon = { Icon(Icons.Default.Search, null, tint = VelvetTheme.SunsetCoral) },
                     singleLine = true
                 )
+
+                Spacer(Modifier.width(12.dp))
+
+                IconButton(
+                    onClick = {
+                        pickFolderNatively()?.let { folder ->
+                            val newCluster = Cluster(
+                                id = (clusters.maxOfOrNull { it.id } ?: 0) + 1,
+                                name = folder.name,
+                                fileCount = folder.listFiles()?.filter { it.isFile }?.size ?: 0,
+                                path = folder.absolutePath,
+                                lastModified = "Just now",
+                                hasDuplicates = hasDuplicates(folder.absolutePath)
+                            )
+                            clusters.add(newCluster)
+                            saveClusters(clusters, user?.id ?: -1)
+                        }
+                    },
+                    modifier = Modifier
+                        .background(VelvetTheme.SunsetCoral, RoundedCornerShape(12.dp))
+                        .size(56.dp)
+                ) {
+                    Icon(Icons.Default.Add, "Add Folder", tint = VelvetTheme.MidnightNavy)
+                }
 
                 Spacer(Modifier.width(12.dp))
 
@@ -150,7 +181,7 @@ fun HomeView(
                         ModernClusterCard(
                             cluster = cluster,
                             onDelete = {
-                                DatabaseManager.deleteCluster(cluster.id)
+                                clusterToDelete = cluster
                             },
                             onClick = { onClusterClick(cluster) }
                         )
@@ -175,7 +206,7 @@ fun HomeView(
             confirmButton = {
                 TextButton(onClick = {
                     clusters.remove(clusterToDelete)
-                    saveClusters(clusters)
+                    saveClusters(clusters, user?.id ?: -1)
                     clusterToDelete = null
                 }) {
                     Text("REMOVE", color = VelvetTheme.CrimsonRed, fontWeight = FontWeight.Bold)
@@ -540,18 +571,40 @@ fun ModernFileRow(file: FileMetadata) {
         )
     }
 }
-fun saveClusters(clusters: List<Cluster>) {
-    val file = File("clusters.txt")
+fun saveClusters(clusters: List<Cluster>, userId: Int = -1) {
+    val workingDir = File(System.getProperty("user.dir"))
+    val baseDir = if (File(workingDir, "composeApp").exists()) {
+        File(workingDir, "composeApp")
+    } else {
+        workingDir
+    }
+    val file = if (userId > 0) {
+        File(baseDir, "users/$userId/clusters.txt").also { it.parentFile.mkdirs() }
+    } else {
+        File(baseDir, "clusters.txt")
+    }
     val data = clusters.joinToString("\n") {
         "${it.id}|${it.name}|${it.path}|${it.fileCount}|${it.lastModified}|${it.hasDuplicates}"
     }
     file.writeText(data)
+    println("DEBUG: Saved ${clusters.size} clusters to: ${file.absolutePath}")
 }
 
-fun loadClusters(): List<Cluster> {
-    val file = File("clusters.txt")
+fun loadClusters(userId: Int = -1): List<Cluster> {
+    val workingDir = File(System.getProperty("user.dir"))
+    val baseDir = if (File(workingDir, "composeApp").exists()) {
+        File(workingDir, "composeApp")
+    } else {
+        workingDir
+    }
+    val file = if (userId > 0) {
+        File(baseDir, "users/$userId/clusters.txt")
+    } else {
+        File(baseDir, "clusters.txt")
+    }
+    println("DEBUG: Loading clusters from: ${file.absolutePath}, exists: ${file.exists()}")
     if (!file.exists()) return emptyList()
-    return file.readLines().mapNotNull { line ->
+    val loaded = file.readLines().mapNotNull { line ->
         val parts = line.split("|")
         if (parts.size == 6) {
             Cluster(
@@ -566,6 +619,8 @@ fun loadClusters(): List<Cluster> {
             Cluster(parts[0].toInt(), parts[1], parts[3].toInt(), parts[2], parts[4], false)
         } else null
     }
+    println("DEBUG: Loaded ${loaded.size} clusters")
+    return loaded
 }
 fun pickFolderNatively(): File? {
     try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()) } catch (e: Exception) {}
@@ -788,7 +843,8 @@ fun DetailHeader(
 @Composable
 fun DashboardHeader(
     onOpenMap: () -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onRefresh: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -813,6 +869,13 @@ fun DashboardHeader(
         }
 
         Row {
+            IconButton(
+                onClick = onRefresh,
+                modifier = Modifier.background(VelvetTheme.SlateBlue.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+            ) {
+                Icon(Icons.Default.Refresh, "Refresh", tint = VelvetTheme.SunsetCoral)
+            }
+            Spacer(Modifier.width(12.dp))
             IconButton(
                 onClick = onOpenMap,
                 modifier = Modifier.background(VelvetTheme.DeepOcean, RoundedCornerShape(12.dp))

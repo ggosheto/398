@@ -29,7 +29,11 @@ fun FileListView(
     clusterName: String,
     files: List<FileEntry>,
     onBack: () -> Unit,
-    onSearch: (String) -> Unit
+    onSearch: (String) -> Unit,
+    // NEW PARAMETERS
+    isUserCreated: Boolean = false,
+    onCopyFile: (FileEntry) -> Unit = {},
+    onPasteFiles: () -> Unit = {}
 ) {
     var selectedFile by remember { mutableStateOf<FileEntry?>(null) }
     var searchQuery by remember { mutableStateOf("") }
@@ -55,21 +59,33 @@ fun FileListView(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null, tint = textColor) }
                     Column(Modifier.padding(start = 8.dp)) {
-                        Text("SYSTEM CLUSTER", color = AccentColor.copy(0.7f), style = MaterialTheme.typography.overline)
+                        Text(if (isUserCreated) "VIRTUAL CLUSTER" else "SYSTEM CLUSTER", color = AccentColor.copy(0.7f), style = MaterialTheme.typography.overline)
                         Text(clusterName.uppercase(), color = textColor, style = MaterialTheme.typography.h4, fontWeight = FontWeight.Black)
                     }
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    // NEW: Paste button visible only in user-created empty clusters
+                    if (isUserCreated) {
+                        TextButton(
+                            onClick = onPasteFiles,
+                            modifier = Modifier.padding(end = 8.dp)
+                        ) {
+                            Icon(Icons.Default.ContentPaste, null, tint = AccentColor, modifier = Modifier.size(18.dp))
+                            Text(" PASTE", color = AccentColor, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
                     IconButton(onClick = { isDarkMode = !isDarkMode }) {
                         Icon(if (isDarkMode) Icons.Default.LightMode else Icons.Default.DarkMode, null, tint = AccentColor)
                     }
+
                     Button(
                         onClick = { ExportManager.exportToFolder(clusterName, displayFiles) },
                         colors = ButtonDefaults.buttonColors(AccentColor),
                         shape = RoundedCornerShape(4.dp)
                     ) {
                         Icon(Icons.Default.Download, null, Modifier.size(16.dp), tint = Color(0xFF000814))
-                        Text(" EXTRACT", fontWeight = FontWeight.Bold, color = Color(0xFF000814))
+                        Text(if (isUserCreated) " EXPORT" else " EXTRACT", fontWeight = FontWeight.Bold, color = Color(0xFF000814))
                     }
                 }
             }
@@ -97,7 +113,13 @@ fun FileListView(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(displayFiles) { file ->
-                    FileRowItem(file, selectedFile == file, isDarkMode) { selectedFile = file }
+                    FileRowItem(
+                        file = file,
+                        isSelected = selectedFile == file,
+                        isDarkMode = isDarkMode,
+                        onCopy = { onCopyFile(file) },
+                        onClick = { selectedFile = file }
+                    )
                 }
             }
             if (selectedFile != null) {
@@ -106,6 +128,37 @@ fun FileListView(
         }
     }
 }
+
+@Composable
+fun FileRowItem(
+    file: FileEntry,
+    isSelected: Boolean,
+    isDarkMode: Boolean,
+    onCopy: () -> Unit = {},
+    onClick: () -> Unit
+) {
+    val subTextColor = if (isDarkMode) Color.White.copy(0.4f) else Color.Black.copy(0.5f)
+    val textColor = if (isDarkMode) Color.White else Color.Black
+
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable { onClick() },
+        backgroundColor = if (isSelected) AccentColor.copy(0.1f) else Color.Transparent,
+        elevation = 0.dp
+    ) {
+        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Description, null, tint = if (isSelected) AccentColor else subTextColor)
+            Column(Modifier.padding(start = 12.dp).weight(1f)) {
+                Text(file.name, color = textColor)
+                Text(file.path, color = subTextColor, style = MaterialTheme.typography.caption, maxLines = 1)
+            }
+            // NEW: Quick Copy Button on the row
+            IconButton(onClick = onCopy) {
+                Icon(Icons.Default.ContentCopy, "Copy to clipboard", tint = AccentColor.copy(0.6f), modifier = Modifier.size(18.dp))
+            }
+        }
+    }
+}
+
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @ExperimentalLayoutApi
 @Composable

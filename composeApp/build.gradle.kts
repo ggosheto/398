@@ -42,9 +42,12 @@ compose.desktop {
         mainClass = "com.clusterview.demo.MainKt"
 
         nativeDistributions {
-            targetFormats(TargetFormat.Msi, TargetFormat.Exe)
-            packageName = "demo"
+            targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Exe) // For Windows
+            packageName = "ClusterView"
             packageVersion = "1.0.0"
+            description = "Data Clustering and Visualization Tool"
+            copyright = "© 2026 ClusterView Team"
+            vendor = "ClusterView"
 
         }
     }
